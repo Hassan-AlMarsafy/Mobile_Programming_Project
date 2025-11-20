@@ -13,6 +13,7 @@ class _SplashScreenState extends State<SplashScreen>
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
   bool _isLoading = true;
 
   @override
@@ -33,6 +34,11 @@ class _SplashScreenState extends State<SplashScreen>
     // Fade animation: fades in from 0.5 to 1.0
     _fadeAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
+    );
+
+    // Slide animation for text: slides up from bottom
+    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
     );
 
     // Start animation
@@ -61,11 +67,22 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
+      backgroundColor: const Color(0xFFF8FFFE),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.white,
+              Colors.green[50]!,
+            ],
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
               // Animated logo
               FadeTransition(
                 opacity: _fadeAnimation,
@@ -83,9 +100,10 @@ class _SplashScreenState extends State<SplashScreen>
                       borderRadius: BorderRadius.circular(28),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.green.withOpacity(0.3),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
+                          color: Colors.green.withOpacity(0.4),
+                          blurRadius: 25,
+                          offset: const Offset(0, 12),
+                          spreadRadius: 2,
                         ),
                       ],
                     ),
@@ -118,63 +136,135 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 40),
 
-              // App title
-              Text(
-                'SMART Hydroponic',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.grey[900],
-                  letterSpacing: 0.5,
+              // Animated text content
+              SlideTransition(
+                position: _slideAnimation,
+                child: Column(
+                  children: [
+                    // App title
+                    Text(
+                      'SMART Hydroponic',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.grey[900],
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Subtitle
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      child: Text(
+                        'Monitor & Control Your Growing System',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[600],
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Feature pills
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildFeaturePill(Icons.sensors, 'Smart Sensors'),
+                        const SizedBox(width: 12),
+                        _buildFeaturePill(Icons.analytics, 'Analytics'),
+                        const SizedBox(width: 12),
+                        _buildFeaturePill(Icons.security, 'Secure'),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 8),
-
-              // Subtitle
-              Text(
-                'Monitor & Control Your Growing System',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.grey[600],
-                ),
-              ),
-              const SizedBox(height: 48),
+              const SizedBox(height: 60),
 
               // Loading indicator or Get Started button
               if (_isLoading)
-                CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.green[700]!),
-                  strokeWidth: 3,
+                SizedBox(
+                  width: 50,
+                  height: 50,
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.green[700]!),
+                    strokeWidth: 3,
+                  ),
                 )
               else
-                ElevatedButton(
-                  onPressed: _navigateToAuth,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green[700],
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 48,
-                      vertical: 14,
+                Column(
+                  children: [
+                    ElevatedButton(
+                      onPressed: _navigateToAuth,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green[700],
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 60,
+                          vertical: 16,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        elevation: 8,
+                        shadowColor: Colors.green[700]!.withOpacity(0.4),
+                      ),
+                      child: const Text(
+                        'Get Started',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Manage your hydroponic garden effortlessly',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[500],
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
-                  ),
-                  child: const Text(
-                    'Get Started',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
+                  ],
                 ),
             ],
           ),
         ),
-      );
+      ),
+    );
+  }
+
+  Widget _buildFeaturePill(IconData icon, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.green[50],
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.green[200]!, width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: Colors.green[700]),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: Colors.green[700],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
