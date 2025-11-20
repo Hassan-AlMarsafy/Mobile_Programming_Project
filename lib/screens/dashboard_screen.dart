@@ -1,5 +1,14 @@
-// Dashboard screen placeholder
-// File: lib/screens/dashboard_screen.dart
-// TODO: Implement Dashboard UI (system status, live sensors, controls).
+import 'package:flutter/material.dart';
 
-// No implementation here — placeholder file created to satisfy project structure.
+// Dashboard Screen - TODO: Implement
+class DashboardScreen extends StatelessWidget {
+  const DashboardScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Dashboard')),
+      body: const Center(child: Text('Dashboard - Coming Soon')),
+    );
+  }
+}

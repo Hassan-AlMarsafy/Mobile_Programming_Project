@@ -1,5 +1,14 @@
-// Analytics screen placeholder
-// File: lib/screens/analytics_screen.dart
-// TODO: Implement Analytics & History UI (charts, export, trend analysis).
+import 'package:flutter/material.dart';
 
-// No implementation here — placeholder file created to satisfy project structure.
+// Analytics Screen - TODO: Implement
+class AnalyticsScreen extends StatelessWidget {
+  const AnalyticsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Analytics & History')),
+      body: const Center(child: Text('Analytics - Coming Soon')),
+    );
+  }
+}

@@ -1,5 +1,14 @@
-// Settings screen placeholder
-// File: lib/screens/settings_screen.dart
-// TODO: Implement Settings UI (sensor thresholds, notifications, speech settings).
+import 'package:flutter/material.dart';
 
-// No implementation here — placeholder file created to satisfy project structure.
+// Settings Screen - TODO: Implement
+class SettingsScreen extends StatelessWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Settings')),
+      body: const Center(child: Text('Settings - Coming Soon')),
+    );
+  }
+}

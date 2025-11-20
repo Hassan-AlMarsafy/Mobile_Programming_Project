@@ -1,5 +1,14 @@
-// Alerts screen placeholder
-// File: lib/screens/alerts_screen.dart
-// TODO: Implement Alerts & Notifications UI (real-time alerts, acknowledgment).
+import 'package:flutter/material.dart';
 
-// No implementation here — placeholder file created to satisfy project structure.
+// Alerts Screen - TODO: Implement
+class AlertsScreen extends StatelessWidget {
+  const AlertsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Alerts & Notifications')),
+      body: const Center(child: Text('Alerts - Coming Soon')),
+    );
+  }
+}

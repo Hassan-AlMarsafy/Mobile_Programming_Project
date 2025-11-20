@@ -1,5 +1,14 @@
-// Sensors list screen placeholder
-// File: lib/screens/sensors/sensors_list_screen.dart
-// TODO: Implement sensors list UI showing all sensors.
+import 'package:flutter/material.dart';
 
-// No implementation here — placeholder file created to satisfy project structure.
+// Sensor Screen - TODO: Implement
+class SensorScreen extends StatelessWidget {
+  const SensorScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Sensor Monitoring')),
+      body: const Center(child: Text('Sensor Monitoring - Coming Soon')),
+    );
+  }
+}
