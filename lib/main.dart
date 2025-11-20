@@ -1,7 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'viewmodels/sensor_viewmodel.dart';
 
 void main() {
-  runApp(const SmartHydroponicApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => SensorViewModel()),
+      ],
+      child: const SmartHydroponicApp(),
+    ),
+  );
 }
 
 class SmartHydroponicApp extends StatelessWidget {
@@ -87,6 +97,7 @@ class _SplashScreenState extends State<SplashScreen> {
     super.initState();
     // Simulate a loading delay then navigate
     Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
       Navigator.pushReplacementNamed(context, AppRoutes.login);
     });
   }
@@ -234,7 +245,7 @@ class ForgotPasswordScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final _emailCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
     return Scaffold(
       appBar: AppBar(title: const Text('Forgot Password')),
       body: Padding(
@@ -243,7 +254,7 @@ class ForgotPasswordScreen extends StatelessWidget {
           children: [
             const Text('Enter your email to receive password reset instructions.'),
             const SizedBox(height: 12),
-            TextField(controller: _emailCtrl, decoration: const InputDecoration(labelText: 'Email')),
+            TextField(controller: emailCtrl, decoration: const InputDecoration(labelText: 'Email')),
             const SizedBox(height: 12),
             ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('Send Reset Email'))
           ],
