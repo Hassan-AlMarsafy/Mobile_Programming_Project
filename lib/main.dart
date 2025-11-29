@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'viewmodels/sensor_viewmodel.dart';
+import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 import 'screens/auth_screen.dart';
 import 'screens/dashboard_screen.dart';
@@ -64,31 +65,7 @@ class AppRoutes {
   };
 }
 
-// ------------------ Theme ------------------
-class AppTheme {
-  static final lightTheme = ThemeData(
-    colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-    scaffoldBackgroundColor: Colors.grey[50],
-    appBarTheme: const AppBarTheme(
-      backgroundColor: Colors.green,
-      foregroundColor: Colors.white,
-      elevation: 2,
-    ),
-    elevatedButtonTheme: ElevatedButtonThemeData(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.green,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    ),
-    cardTheme: const CardThemeData(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(12)),
-      ),
-      elevation: 2,
-    ),
-  );
-}
-
-// All screens are now imported from their respective files
-// and no longer defined here to follow MVVM architecture
+// Theme is now centralized in lib/theme/app_theme.dart
+// All screens are imported from their respective files
+// This follows MVVM architecture and maintains clean separation of concerns
 
