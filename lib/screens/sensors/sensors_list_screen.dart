@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'sensor_detail_screen.dart';
+import '/widgets/main_layout.dart';
 
 class SensorScreen extends StatefulWidget {
   const SensorScreen({super.key});
@@ -107,7 +108,7 @@ class _SensorScreenState extends State<SensorScreen> {
             for (var sensor in _sensors) {
               double change =
                   (sensor['value'] * 0.02) *
-                  (0.5 - (DateTime.now().millisecond % 100) / 100);
+                      (0.5 - (DateTime.now().millisecond % 100) / 100);
               sensor['value'] = (sensor['value'] + change).clamp(
                 sensor['min'] * 0.8,
                 sensor['max'] * 1.2,
@@ -198,58 +199,47 @@ class _SensorScreenState extends State<SensorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        backgroundColor: Colors.green[700],
-        elevation: 0,
-        title: const Text(
-          'Sensor Monitoring',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 20,
+    return MainLayout(
+      title: 'Sensor Monitoring',
+      currentIndex: 1, // Sensor screen is index 1 in bottom navigation
+      actions: [
+        IconButton(
+          icon: Icon(
+            _autoUpdate
+                ? Icons.pause_circle_outline
+                : Icons.play_circle_outline,
             color: Colors.white,
           ),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(
-              _autoUpdate
-                  ? Icons.pause_circle_outline
-                  : Icons.play_circle_outline,
-              color: Colors.white,
-            ),
-            onPressed: () {
-              setState(() {
-                _autoUpdate = !_autoUpdate;
-                if (_autoUpdate) {
-                  _startAutoUpdate();
-                } else {
-                  _stopAutoUpdate();
-                }
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    _autoUpdate
-                        ? 'Auto-update enabled'
-                        : 'Auto-update disabled',
-                  ),
-                  duration: const Duration(seconds: 2),
-                  behavior: SnackBarBehavior.floating,
+          onPressed: () {
+            setState(() {
+              _autoUpdate = !_autoUpdate;
+              if (_autoUpdate) {
+                _startAutoUpdate();
+              } else {
+                _stopAutoUpdate();
+              }
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  _autoUpdate
+                      ? 'Auto-update enabled'
+                      : 'Auto-update disabled',
                 ),
-              );
-            },
-            tooltip: _autoUpdate ? 'Pause auto-update' : 'Resume auto-update',
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: _isRefreshing ? null : _refreshSensors,
-            tooltip: 'Refresh all sensors',
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          },
+          tooltip: _autoUpdate ? 'Pause auto-update' : 'Resume auto-update',
+        ),
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white),
+          onPressed: _isRefreshing ? null : _refreshSensors,
+          tooltip: 'Refresh all sensors',
+        ),
+      ],
+      child: RefreshIndicator(
         onRefresh: _refreshSensors,
         color: Colors.green[700],
         child: Column(
@@ -339,16 +329,16 @@ class _SensorScreenState extends State<SensorScreen> {
             Expanded(
               child: _isRefreshing
                   ? const Center(
-                      child: CircularProgressIndicator(color: Colors.green),
-                    )
+                child: CircularProgressIndicator(color: Colors.green),
+              )
                   : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _sensors.length,
-                      itemBuilder: (context, index) {
-                        final sensor = _sensors[index];
-                        return _buildSensorCard(sensor, context);
-                      },
-                    ),
+                padding: const EdgeInsets.all(16),
+                itemCount: _sensors.length,
+                itemBuilder: (context, index) {
+                  final sensor = _sensors[index];
+                  return _buildSensorCard(sensor, context);
+                },
+              ),
             ),
           ],
         ),
@@ -361,8 +351,8 @@ class _SensorScreenState extends State<SensorScreen> {
     final statusColor = _getStatusColor(sensor['status']);
     final statusIcon = _getStatusIcon(sensor['status']);
     final progress =
-        ((calibratedValue - sensor['min']) / (sensor['max'] - sensor['min']))
-            .clamp(0.0, 1.0);
+    ((calibratedValue - sensor['min']) / (sensor['max'] - sensor['min']))
+        .clamp(0.0, 1.0);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),

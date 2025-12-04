@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import '../widgets/main_layout.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -31,34 +32,22 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        backgroundColor: Colors.green[700],
-        elevation: 0,
-        title: const Text(
-          'Analytics & History',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 20,
-            color: Colors.white,
-          ),
+    return MainLayout(
+      title: 'Analytics & History',
+      currentIndex: 3,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.download_for_offline_outlined, color: Colors.white),
+          tooltip: 'Export Data',
+          onPressed: () {
+            // Placeholder for export functionality
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Export functionality coming soon!')),
+            );
+          },
         ),
-        actions: [
-          // New: Export button in the AppBar for easy access
-          IconButton(
-            icon: const Icon(Icons.download_for_offline_outlined, color: Colors.white),
-            tooltip: 'Export Data',
-            onPressed: () {
-              // Placeholder for export functionality
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Export functionality coming soon!')),
-              );
-            },
-          ),
-        ],
-      ),
-      body: FadeTransition(
+      ],
+      child: FadeTransition(
         opacity: _fadeAnimation,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),

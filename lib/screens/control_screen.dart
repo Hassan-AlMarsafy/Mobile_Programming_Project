@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/main_layout.dart';
 
 class ControlScreen extends StatefulWidget {
   const ControlScreen({super.key});
@@ -35,21 +36,10 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        backgroundColor: Colors.green[700],
-        elevation: 0,
-        title: const Text(
-          'Control Panel',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 20,
-            color: Colors.white,
-          ),
-        ),
-      ),
-      body: FadeTransition(
+    return MainLayout(
+      title: 'Control Panel',
+      currentIndex: 2,
+      child: FadeTransition(
         opacity: _fadeAnimation,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
