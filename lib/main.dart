@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'viewmodels/sensor_viewmodel.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
@@ -11,13 +12,15 @@ import 'screens/analytics_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/alerts_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  await Firebase.initializeApp();
+
   runApp(
     MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => SensorViewModel()),
-      ],
+      providers: [ChangeNotifierProvider(create: (_) => SensorViewModel())],
       child: const SmartHydroponicApp(),
     ),
   );
@@ -68,4 +71,3 @@ class AppRoutes {
 // Theme is now centralized in lib/theme/app_theme.dart
 // All screens are imported from their respective files
 // This follows MVVM architecture and maintains clean separation of concerns
-
