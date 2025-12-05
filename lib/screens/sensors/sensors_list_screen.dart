@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:provider/provider.dart';
 import 'sensor_detail_screen.dart';
 import '/widgets/main_layout.dart';
+import '/services/tts_service.dart';
+import '/viewmodels/settings_viewmodel.dart';
 
 class SensorScreen extends StatefulWidget {
   const SensorScreen({super.key});
@@ -96,6 +99,18 @@ class _SensorScreenState extends State<SensorScreen> {
   void dispose() {
     _autoUpdateTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _speakAllSensors() async {
+    final tts = TtsService();
+    StringBuffer message = StringBuffer("Sensor readings. ");
+    
+    for (var sensor in _sensors) {
+      final calibratedValue = _getCalibratedValue(sensor);
+      message.write("${sensor['name']} is ${calibratedValue.toStringAsFixed(1)} ${sensor['unit']}. ");
+    }
+    
+    await tts.speak(message.toString());
   }
 
   void _startAutoUpdate() {
@@ -203,6 +218,16 @@ class _SensorScreenState extends State<SensorScreen> {
       title: 'Sensor Monitoring',
       currentIndex: 1, // Sensor screen is index 1 in bottom navigation
       actions: [
+        Consumer<SettingsViewModel>(
+          builder: (context, settings, _) {
+            if (!settings.ttsEnabled) return const SizedBox.shrink();
+            return IconButton(
+              icon: const Icon(Icons.volume_up, color: Colors.white),
+              onPressed: _speakAllSensors,
+              tooltip: 'Read all sensors',
+            );
+          },
+        ),
         IconButton(
           icon: Icon(
             _autoUpdate

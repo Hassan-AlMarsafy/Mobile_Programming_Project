@@ -757,9 +757,11 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
     final name = widget.sensor['name'];
     final unit = widget.sensor['unit'];
     final status = widget.sensor['status'];
+    final min = widget.sensor['min'];
+    final max = widget.sensor['max'];
     
     await tts.speak(
-      "$name is currently $value $unit. Status: $status"
+      "$name is currently $value $unit. Status: $status . Acceptable range is between $min and $max $unit.",
     );
   }
 }
