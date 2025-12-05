@@ -197,7 +197,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                               status: _getSensorStatus(
                                 sensorData.temperature,
                                 20,
-                                28,
+                                40,
                               ),
                             ),
                             SensorCard(
@@ -235,9 +235,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   // Quick Actions Section
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                    ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start),
                   ),
 
                   const SizedBox(height: 15),

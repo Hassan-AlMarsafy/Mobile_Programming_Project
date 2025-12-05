@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
-import 'dart:math' as math;
+import 'package:provider/provider.dart';
+import '../../viewmodels/sensor_viewmodel.dart';
 
 class SensorDetailScreen extends StatefulWidget {
   final Map<String, dynamic> sensor;
@@ -12,38 +12,6 @@ class SensorDetailScreen extends StatefulWidget {
 }
 
 class _SensorDetailScreenState extends State<SensorDetailScreen> {
-  String _selectedTimeRange = '1H';
-  List<FlSpot> _chartData = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _generateChartData();
-  }
-
-  void _generateChartData() {
-    // Generate mock historical data
-    final random = math.Random();
-    final baseValue = widget.sensor['value'];
-    _chartData = List.generate(20, (index) {
-      final variance = (random.nextDouble() - 0.5) * (baseValue * 0.1);
-      return FlSpot(index.toDouble(), baseValue + variance);
-    });
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'normal':
-        return Colors.green;
-      case 'warning':
-        return Colors.orange;
-      case 'critical':
-        return Colors.red;
-      default:
-        return Colors.grey;
-    }
-  }
-
   double _getCalibratedValue() {
     return widget.sensor['value'] + widget.sensor['calibration'];
   }
@@ -63,8 +31,6 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = _getStatusColor(widget.sensor['status']);
-
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -202,165 +168,143 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
 
             const SizedBox(height: 20),
 
-            // Historical Chart
+            // Real-time Firebase Data
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Historical Data',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      SegmentedButton<String>(
-                        segments: const [
-                          ButtonSegment(value: '1H', label: Text('1H')),
-                          ButtonSegment(value: '1D', label: Text('1D')),
-                          ButtonSegment(value: '1W', label: Text('1W')),
-                        ],
-                        selected: {_selectedTimeRange},
-                        onSelectionChanged: (Set<String> newSelection) {
-                          setState(() {
-                            _selectedTimeRange = newSelection.first;
-                            _generateChartData();
-                          });
-                        },
-                        style: ButtonStyle(
-                          visualDensity: VisualDensity.compact,
-                          backgroundColor:
-                              WidgetStateProperty.resolveWith<Color>((
-                                Set<WidgetState> states,
-                              ) {
-                                if (states.contains(WidgetState.selected)) {
-                                  return Colors.green[700]!;
-                                }
-                                return Colors.white;
-                              }),
-                          foregroundColor:
-                              WidgetStateProperty.resolveWith<Color>((
-                                Set<WidgetState> states,
-                              ) {
-                                if (states.contains(WidgetState.selected)) {
-                                  return Colors.white;
-                                }
-                                return Colors.green[700]!;
-                              }),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                  const Text(
+                    'Live Firebase Data',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black87,
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: SizedBox(
-                        height: 200,
-                        child: LineChart(
-                          LineChartData(
-                            lineTouchData: LineTouchData(
-                              touchTooltipData: LineTouchTooltipData(
-                                getTooltipItems: (touchedSpots) {
-                                  return touchedSpots.map((spot) {
-                                    return LineTooltipItem(
-                                      spot.y.toStringAsFixed(2),
-                                      TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
+                  ),
+                  const SizedBox(height: 12),
+                  Consumer<SensorViewModel>(
+                    builder: (context, viewModel, child) {
+                      if (viewModel.loading) {
+                        return Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Padding(
+                            padding: EdgeInsets.all(40),
+                            child: Center(child: CircularProgressIndicator()),
+                          ),
+                        );
+                      }
+
+                      final sensorData = viewModel.sensorData;
+                      if (sensorData == null) {
+                        return Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(40),
+                            child: Center(
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.cloud_off,
+                                    size: 48,
+                                    color: Colors.grey[400],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'No Firebase data available',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+
+                      // Display all sensor readings from Firebase
+                      return Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              _buildFirebaseDataRow(
+                                'Temperature',
+                                '${sensorData.temperature.toStringAsFixed(1)}°C',
+                                Icons.thermostat,
+                                Colors.orange,
+                              ),
+                              const Divider(height: 20),
+                              _buildFirebaseDataRow(
+                                'pH Level',
+                                sensorData.pH.toStringAsFixed(2),
+                                Icons.water_drop,
+                                Colors.blue,
+                              ),
+                              const Divider(height: 20),
+                              _buildFirebaseDataRow(
+                                'Water Level',
+                                '${sensorData.waterLevel.toStringAsFixed(0)}%',
+                                Icons.opacity,
+                                Colors.cyan,
+                              ),
+                              const Divider(height: 20),
+                              _buildFirebaseDataRow(
+                                'TDS',
+                                '${sensorData.tds.toStringAsFixed(0)} ppm',
+                                Icons.science,
+                                Colors.purple,
+                              ),
+                              const Divider(height: 20),
+                              _buildFirebaseDataRow(
+                                'Light Intensity',
+                                '${sensorData.lightIntensity.toStringAsFixed(0)} lux',
+                                Icons.light_mode,
+                                Colors.amber,
+                              ),
+                              const SizedBox(height: 12),
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[100],
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.access_time,
+                                      size: 14,
+                                      color: Colors.grey[600],
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Last updated: ${sensorData.timestamp.toString().substring(11, 19)}',
+                                      style: TextStyle(
                                         fontSize: 12,
-                                      ),
-                                    );
-                                  }).toList();
-                                },
-                              ),
-                            ),
-                            gridData: FlGridData(
-                              show: true,
-                              drawVerticalLine: false,
-                              horizontalInterval: 1,
-                              getDrawingHorizontalLine: (value) {
-                                return FlLine(
-                                  color: Colors.grey[300]!,
-                                  strokeWidth: 1,
-                                );
-                              },
-                            ),
-                            titlesData: FlTitlesData(
-                              show: true,
-                              rightTitles: const AxisTitles(
-                                sideTitles: SideTitles(showTitles: false),
-                              ),
-                              topTitles: const AxisTitles(
-                                sideTitles: SideTitles(showTitles: false),
-                              ),
-                              bottomTitles: AxisTitles(
-                                sideTitles: SideTitles(
-                                  showTitles: true,
-                                  reservedSize: 30,
-                                  interval: 5,
-                                  getTitlesWidget: (value, meta) {
-                                    return Text(
-                                      value.toInt().toString(),
-                                      style: TextStyle(
                                         color: Colors.grey[600],
-                                        fontSize: 10,
                                       ),
-                                    );
-                                  },
-                                ),
-                              ),
-                              leftTitles: AxisTitles(
-                                sideTitles: SideTitles(
-                                  showTitles: true,
-                                  reservedSize: 40,
-                                  getTitlesWidget: (value, meta) {
-                                    return Text(
-                                      value.toStringAsFixed(0),
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 10,
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                            borderData: FlBorderData(show: false),
-                            minX: 0,
-                            maxX: 19,
-                            minY: widget.sensor['min'] * 0.9,
-                            maxY: widget.sensor['max'] * 1.1,
-                            lineBarsData: [
-                              LineChartBarData(
-                                spots: _chartData,
-                                isCurved: true,
-                                color: statusColor,
-                                barWidth: 3,
-                                isStrokeCapRound: true,
-                                dotData: const FlDotData(show: false),
-                                belowBarData: BarAreaData(
-                                  show: true,
-                                  color: statusColor.withOpacity(0.1),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                    },
                   ),
                 ],
               ),
@@ -568,6 +512,59 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
               ),
             ],
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFirebaseDataRow(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: color, size: 24),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(Icons.check_circle, color: color, size: 16),
         ),
       ],
     );

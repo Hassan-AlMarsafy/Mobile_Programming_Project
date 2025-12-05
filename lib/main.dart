@@ -9,6 +9,7 @@ import 'screens/splash_screen.dart';
 import 'screens/auth_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/sensors/sensors_list_screen.dart';
+import 'screens/sensors/sensor_detail_screen.dart';
 import 'screens/control_screen.dart';
 import 'screens/analytics_screen.dart';
 import 'screens/settings_screen.dart';
@@ -18,9 +19,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   runApp(
     MultiProvider(
@@ -45,6 +44,7 @@ class SmartHydroponicApp extends StatelessWidget {
       // Remove the 'home' property and use initialRoute instead
       initialRoute: '/splash', // Start with splash screen
       routes: AppRoutes.routes,
+      onGenerateRoute: AppRoutes.onGenerateRoute,
     );
   }
 }
@@ -58,6 +58,7 @@ class AppRoutes {
   static const forgot = '/forgot';
   static const dashboard = '/dashboard';
   static const sensor = '/sensor';
+  static const sensorDetail = '/sensor-detail';
   static const control = '/control';
   static const analytics = '/analytics';
   static const settings = '/settings';
@@ -76,6 +77,16 @@ class AppRoutes {
     settings: (_) => const SettingsScreen(),
     alerts: (_) => const AlertsScreen(),
   };
+
+  static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
+    if (settings.name == sensorDetail) {
+      final args = settings.arguments as Map<String, dynamic>;
+      return MaterialPageRoute(
+        builder: (_) => SensorDetailScreen(sensor: args),
+      );
+    }
+    return null;
+  }
 }
 
 // Auth Wrapper Widget
@@ -120,16 +131,12 @@ class _AuthWrapperState extends State<AuthWrapper> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  Colors.green[700]!,
-                ),
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.green[700]!),
               ),
               const SizedBox(height: 20),
               Text(
                 'Checking authentication...',
-                style: TextStyle(
-                  color: Colors.grey[600],
-                ),
+                style: TextStyle(color: Colors.grey[600]),
               ),
             ],
           ),

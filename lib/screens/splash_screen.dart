@@ -254,35 +254,6 @@ class _SplashScreenState extends State<SplashScreen>
                         fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    // Firebase status indicator
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _firebaseStatus.contains('✓')
-                            ? Colors.green[50]
-                            : Colors.orange[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: _firebaseStatus.contains('✓')
-                              ? Colors.green[300]!
-                              : Colors.orange[300]!,
-                        ),
-                      ),
-                      child: Text(
-                        _firebaseStatus,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: _firebaseStatus.contains('✓')
-                              ? Colors.green[700]
-                              : Colors.orange[700],
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
             ],
