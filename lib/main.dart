@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'viewmodels/sensor_viewmodel.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
@@ -16,7 +17,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Firebase
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   runApp(
     MultiProvider(
@@ -67,7 +68,3 @@ class AppRoutes {
     alerts: (_) => const AlertsScreen(),
   };
 }
-
-// Theme is now centralized in lib/theme/app_theme.dart
-// All screens are imported from their respective files
-// This follows MVVM architecture and maintains clean separation of concerns
