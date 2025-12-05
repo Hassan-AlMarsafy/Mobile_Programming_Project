@@ -237,22 +237,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Quick Actions',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        _buildQuickActionsGrid(),
-                      ],
                     ),
                   ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 15),
 
                   // Recent Activity
                   Padding(
@@ -344,39 +332,6 @@ class _DashboardScreenState extends State<DashboardScreen>
           Icon(Icons.chevron_right, color: Colors.white.withOpacity(0.8)),
         ],
       ),
-    );
-  }
-
-  Widget _buildQuickActionsGrid() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildQuickActionCard(
-            icon: Icons.control_camera,
-            label: 'Control',
-            color: Colors.blue,
-            onTap: () => Navigator.pushNamed(context, '/control'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildQuickActionCard(
-            icon: Icons.analytics_outlined,
-            label: 'Analytics',
-            color: Colors.purple,
-            onTap: () => Navigator.pushNamed(context, '/analytics'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildQuickActionCard(
-            icon: Icons.sensors,
-            label: 'Sensors',
-            color: Colors.orange,
-            onTap: () => Navigator.pushNamed(context, '/sensor'),
-          ),
-        ),
-      ],
     );
   }
 
