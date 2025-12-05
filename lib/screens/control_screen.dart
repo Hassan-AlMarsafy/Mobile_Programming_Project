@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../widgets/main_layout.dart';
+import '../services/speech_service.dart';
+import '../services/tts_service.dart';
+import '../viewmodels/settings_viewmodel.dart';
 
 class ControlScreen extends StatefulWidget {
   const ControlScreen({super.key});
@@ -17,6 +21,11 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
   bool _nutrientPumpState = false;
   bool _lightsState = true;
 
+  // Speech recognition
+  final SpeechService _speechService = SpeechService();
+  bool _isListening = false;
+  String _lastCommand = '';
+
   @override
   void initState() {
     super.initState();
@@ -26,12 +35,95 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
     );
     _fadeAnimation = CurvedAnimation(parent: _animationController, curve: Curves.easeIn);
     _animationController.forward();
+    _speechService.initialize();
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    _speechService.dispose();
     super.dispose();
+  }
+
+  Future<void> _toggleListening() async {
+    if (_isListening) {
+      await _speechService.stopListening();
+      setState(() => _isListening = false);
+    } else {
+      setState(() => _isListening = true);
+      await _speechService.startListening(
+        onResult: (text) {
+          setState(() => _isListening = false);
+          _processVoiceCommand(text);
+        },
+      );
+    }
+  }
+
+  void _processVoiceCommand(String command) {
+    setState(() => _lastCommand = command);
+    final tts = TtsService();
+
+    // Emergency stop
+    if (command.contains('emergency') && command.contains('stop')) {
+      _executeEmergencyStop();
+      tts.speak('Emergency stop activated');
+      return;
+    }
+
+    // Water pump control
+    if (command.contains('water') && command.contains('pump')) {
+      if (command.contains('turn on') || command.contains('start') || command.contains('on')) {
+        setState(() => _waterPumpState = true);
+        tts.speak('Water pump turned on');
+      } else if (command.contains('turn off') || command.contains('stop') || command.contains('off')) {
+        setState(() => _waterPumpState = false);
+        tts.speak('Water pump turned off');
+      }
+      return;
+    }
+
+    // Nutrient pump / Feeding cycle control
+    if ((command.contains('nutrient') || command.contains('feeding')) && 
+        (command.contains('pump') || command.contains('cycle'))) {
+      if (command.contains('start') || command.contains('turn on') || command.contains('on')) {
+        setState(() => _nutrientPumpState = true);
+        tts.speak('Feeding cycle started');
+      } else if (command.contains('end') || command.contains('stop') || command.contains('turn off') || command.contains('off')) {
+        setState(() => _nutrientPumpState = false);
+        tts.speak('Feeding cycle ended');
+      }
+      return;
+    }
+
+    // Light control
+    if (command.contains('light')) {
+      if (command.contains('increase') || command.contains('turn on') || command.contains('on')) {
+        setState(() => _lightsState = true);
+        tts.speak('Grow lights turned on');
+      } else if (command.contains('decrease') || command.contains('turn off') || command.contains('off')) {
+        setState(() => _lightsState = false);
+        tts.speak('Grow lights turned off');
+      }
+      return;
+    }
+
+    // Unknown command
+    tts.speak('Command not recognized');
+  }
+
+  void _executeEmergencyStop() {
+    setState(() {
+      _waterPumpState = false;
+      _nutrientPumpState = false;
+      _lightsState = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('All systems halted!'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 
   @override
@@ -39,6 +131,21 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
     return MainLayout(
       title: 'Control Panel',
       currentIndex: 2,
+      actions: [
+        Consumer<SettingsViewModel>(
+          builder: (context, settings, _) {
+            if (!settings.ttsEnabled) return const SizedBox.shrink();
+            return IconButton(
+              icon: Icon(
+                _isListening ? Icons.mic : Icons.mic_none,
+                color: _isListening ? Colors.red : Colors.white,
+              ),
+              onPressed: _toggleListening,
+              tooltip: _isListening ? 'Stop listening' : 'Voice command',
+            );
+          },
+        ),
+      ],
       child: FadeTransition(
         opacity: _fadeAnimation,
         child: SingleChildScrollView(
@@ -103,15 +210,7 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
               ),
             ),
             ElevatedButton(
-              onPressed: () {
-                // Placeholder for emergency stop action
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('All systems halted!'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              },
+              onPressed: _executeEmergencyStop,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.red[700],
