@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
-import '../models/user.dart';
-import '../services/auth_service.dart';
+import '../services/firebase_auth_service.dart';
 
 class AuthViewModel with ChangeNotifier {
-  final AuthService _authService = AuthService();
+  final FirebaseAuthService _authService = FirebaseAuthService();
 
-  User? _currentUser;
+  Map<String, dynamic>? _currentUser;
   bool _isLoading = false;
   String? _error;
   bool _isLoggedIn = false;
 
-  User? get currentUser => _currentUser;
+  Map<String, dynamic>? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get isLoggedIn => _isLoggedIn;
@@ -22,7 +21,11 @@ class AuthViewModel with ChangeNotifier {
       final result = await _authService.checkExistingSession();
 
       if (result['success']) {
-        _currentUser = result['user'];
+        _currentUser = {
+          'userId': result['userId'],
+          'email': result['email'],
+          'name': result['name'],
+        };
         _isLoggedIn = true;
       } else {
         _isLoggedIn = false;
@@ -53,11 +56,12 @@ class AuthViewModel with ChangeNotifier {
       );
 
       if (result['success']) {
-        // Get user data after successful registration
-        final userResult = await _authService.login(email: email, password: password);
-        if (userResult['success']) {
-          _isLoggedIn = true;
-        }
+        _currentUser = {
+          'userId': result['userId'],
+          'email': result['email'],
+          'name': name,
+        };
+        _isLoggedIn = true;
         notifyListeners();
         return result;
       } else {
@@ -89,11 +93,11 @@ class AuthViewModel with ChangeNotifier {
       );
 
       if (result['success']) {
-        // Get user data
-        final sessionResult = await _authService.checkExistingSession();
-        if (sessionResult['success']) {
-          _currentUser = sessionResult['user'];
-        }
+        _currentUser = {
+          'userId': result['userId'],
+          'email': result['email'],
+          'name': result['name'],
+        };
         _isLoggedIn = true;
         notifyListeners();
         return result;
@@ -139,7 +143,6 @@ class AuthViewModel with ChangeNotifier {
         return {
           'success': true,
           'message': result['message'],
-          'token': result['token'],
           'email': email,
         };
       } else {
@@ -156,17 +159,17 @@ class AuthViewModel with ChangeNotifier {
     }
   }
 
-  // Reset password
-  Future<Map<String, dynamic>> resetPassword({
-    required String token,
+  // Change password
+  Future<Map<String, dynamic>> changePassword({
+    required String currentPassword,
     required String newPassword,
   }) async {
     setLoading(true);
     clearError();
 
     try {
-      final result = await _authService.resetPassword(
-        token: token,
+      final result = await _authService.changePassword(
+        currentPassword: currentPassword,
         newPassword: newPassword,
       );
 
@@ -184,6 +187,47 @@ class AuthViewModel with ChangeNotifier {
     } finally {
       setLoading(false);
     }
+  }
+
+  // Update profile
+  Future<Map<String, dynamic>> updateProfile({
+    required String name,
+    required String email,
+  }) async {
+    setLoading(true);
+    clearError();
+
+    try {
+      final result = await _authService.updateProfile(
+        name: name,
+        email: email,
+      );
+
+      if (result['success']) {
+        // Update local user data
+        if (_currentUser != null) {
+          _currentUser!['name'] = name;
+          _currentUser!['email'] = email;
+          notifyListeners();
+        }
+        return result;
+      } else {
+        _error = result['message'];
+        notifyListeners();
+        return result;
+      }
+    } catch (e) {
+      _error = 'Error: $e';
+      notifyListeners();
+      return {'success': false, 'message': 'Error: $e'};
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Get current user data
+  Future<Map<String, dynamic>?> getUserData() async {
+    return await _authService.getCurrentUserData();
   }
 
   // Helper methods

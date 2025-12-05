@@ -18,7 +18,9 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Firebase
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   runApp(
     MultiProvider(
@@ -40,7 +42,7 @@ class SmartHydroponicApp extends StatelessWidget {
       title: 'SMART Hydroponic',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      initialRoute: AppRoutes.splash,
+      home: const AuthWrapper(), // Use AuthWrapper as home
       routes: AppRoutes.routes,
     );
   }
@@ -48,7 +50,7 @@ class SmartHydroponicApp extends StatelessWidget {
 
 // ------------------ Routes ------------------
 class AppRoutes {
-  static const splash = '/';
+  static const splash = '/splash';
   static const login = '/login';
   static const register = '/register';
   static const forgot = '/forgot';
@@ -82,27 +84,32 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
+  bool _initialized = false;
+
   @override
   void initState() {
     super.initState();
-    _checkAuthStatus();
+    _initializeApp();
   }
 
-  Future<void> _checkAuthStatus() async {
+  Future<void> _initializeApp() async {
+    // Initialize auth state
     final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
     await authViewModel.initialize();
+
+    if (mounted) {
+      setState(() {
+        _initialized = true;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final authViewModel = Provider.of<AuthViewModel>(context);
 
-    if (authViewModel.isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+    if (!_initialized) {
+      return const SplashScreen();
     }
 
     if (authViewModel.isLoggedIn) {
@@ -112,6 +119,3 @@ class _AuthWrapperState extends State<AuthWrapper> {
     }
   }
 }
-
-// Update your SplashScreen to use AuthWrapper
-// or modify your route initialization to use AuthWrapper as the home

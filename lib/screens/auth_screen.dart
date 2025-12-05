@@ -682,7 +682,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'We\'ve sent a password reset link to ${_emailCtrl.text}',
+                          'We\'ve sent a password reset link to ${_emailCtrl.text}. Check your inbox and follow the instructions.',
                           textAlign: TextAlign.center,
                           style: TextStyle(fontSize: 13, color: Colors.green[700]),
                         ),
