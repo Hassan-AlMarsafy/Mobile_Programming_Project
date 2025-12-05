@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/tts_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -248,6 +249,14 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
                               subtitle: _language,
                               iconColor: Colors.teal,
                               onTap: () => _showLanguageDialog(),
+                            ),
+                            Divider(height: 1, color: Colors.grey[200]),
+                            _buildNavigationTile(
+                              icon: Icons.volume_up,
+                              title: 'Voice Settings',
+                              subtitle: 'Test text-to-speech',
+                              iconColor: Colors.deepPurple,
+                              onTap: () => _showTtsDialog(),
                             ),
                             Divider(height: 1, color: Colors.grey[200]),
                             _buildNavigationTile(
@@ -644,6 +653,110 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
         backgroundColor: Colors.green[700],
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  void _showTtsDialog() {
+    final tts = TtsService();
+    double speechRate = 0.5;
+    double volume = 1.0;
+    double pitch = 1.0;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.volume_up, color: Colors.green[700]),
+              const SizedBox(width: 8),
+              const Text('Voice Settings'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Speech Rate',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              Slider(
+                value: speechRate,
+                min: 0.0,
+                max: 1.0,
+                divisions: 10,
+                label: speechRate.toStringAsFixed(1),
+                activeColor: Colors.green[700],
+                onChanged: (value) {
+                  setDialogState(() => speechRate = value);
+                  tts.setSpeechRate(value);
+                },
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Volume',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              Slider(
+                value: volume,
+                min: 0.0,
+                max: 1.0,
+                divisions: 10,
+                label: volume.toStringAsFixed(1),
+                activeColor: Colors.green[700],
+                onChanged: (value) {
+                  setDialogState(() => volume = value);
+                  tts.setVolume(value);
+                },
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Pitch',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              Slider(
+                value: pitch,
+                min: 0.5,
+                max: 2.0,
+                divisions: 15,
+                label: pitch.toStringAsFixed(1),
+                activeColor: Colors.green[700],
+                onChanged: (value) {
+                  setDialogState(() => pitch = value);
+                  tts.setPitch(value);
+                },
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    await tts.speak(
+                      "Hello, this is your Smart Hydroponic system speaking. All sensors are functioning normally."
+                    );
+                  },
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Test Voice'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[700],
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                tts.stop();
+                Navigator.pop(context);
+              },
+              child: const Text('Close'),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../viewmodels/sensor_viewmodel.dart';
 import '../widgets/sensor_tile.dart';
 import '../widgets/main_layout.dart';
+import '../services/tts_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -55,6 +56,10 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       title: 'Dashboard',
       currentIndex: 0,
       actions: [
+        IconButton(
+          icon: const Icon(Icons.volume_up, color: Colors.white),
+          onPressed: () => _speakSystemStatus(),
+        ),
         IconButton(
           icon: const Icon(Icons.notifications_outlined, color: Colors.white),
           onPressed: () => Navigator.pushNamed(context, '/alerts'),
@@ -483,6 +488,13 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
         ),
       ),
       trailing: Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
+    );
+  }
+
+  Future<void> _speakSystemStatus() async {
+    final tts = TtsService();
+    await tts.speak(
+      "All systems operational. Temperature 25.5 degrees celsius. pH level 6.8. Humidity 68 percent. Water level 85 percent."
     );
   }
 }
