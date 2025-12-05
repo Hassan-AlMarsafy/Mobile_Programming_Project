@@ -11,7 +11,8 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProviderStateMixin {
+class _DashboardScreenState extends State<DashboardScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -30,17 +31,14 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
+          CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+        );
 
     _animationController.forward();
 
-    // Load sensor data
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<SensorViewModel>().loadSensors();
-    });
+    // Firestore streams are automatically loaded in SensorViewModel constructor
   }
 
   @override
@@ -70,7 +68,8 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
           position: _slideAnimation,
           child: RefreshIndicator(
             onRefresh: () async {
-              await context.read<SensorViewModel>().loadSensors();
+              // Data refreshes automatically via Firestore stream
+              await Future.delayed(const Duration(milliseconds: 500));
             },
             color: Colors.green[700],
             child: SingleChildScrollView(
@@ -154,7 +153,8 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                           ),
                         ),
                         TextButton(
-                          onPressed: () => Navigator.pushNamed(context, '/sensor'),
+                          onPressed: () =>
+                              Navigator.pushNamed(context, '/sensor'),
                           child: Text(
                             'View All',
                             style: TextStyle(
@@ -169,7 +169,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                   const SizedBox(height: 8),
                   Consumer<SensorViewModel>(
                     builder: (context, viewModel, child) {
-                      if (viewModel.loading) {
+                      if (viewModel.loading || viewModel.sensorData == null) {
                         return const Center(
                           child: Padding(
                             padding: EdgeInsets.all(32.0),
@@ -177,6 +177,8 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                           ),
                         );
                       }
+
+                      final sensorData = viewModel.sensorData!;
 
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -190,23 +192,37 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                           children: [
                             SensorCard(
                               title: 'Temperature',
-                              value: '25.5°C',
-                              status: SensorStatus.normal,
+                              value:
+                                  '${sensorData.temperature.toStringAsFixed(1)}°C',
+                              status: _getSensorStatus(
+                                sensorData.temperature,
+                                20,
+                                28,
+                              ),
                             ),
                             SensorCard(
                               title: 'pH Level',
-                              value: '6.8',
-                              status: SensorStatus.normal,
+                              value: sensorData.pH.toStringAsFixed(1),
+                              status: _getSensorStatus(sensorData.pH, 5.5, 7.5),
                             ),
                             SensorCard(
-                              title: 'Humidity',
-                              value: '68%',
-                              status: SensorStatus.warning,
+                              title: 'TDS',
+                              value: '${sensorData.tds.toStringAsFixed(0)} ppm',
+                              status: _getSensorStatus(
+                                sensorData.tds,
+                                500,
+                                1500,
+                              ),
                             ),
                             SensorCard(
                               title: 'Water Level',
-                              value: '85%',
-                              status: SensorStatus.normal,
+                              value:
+                                  '${sensorData.waterLevel.toStringAsFixed(0)}%',
+                              status: _getSensorStatus(
+                                sensorData.waterLevel,
+                                30,
+                                100,
+                              ),
                             ),
                           ],
                         ),
@@ -325,10 +341,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
               ],
             ),
           ),
-          Icon(
-            Icons.chevron_right,
-            color: Colors.white.withOpacity(0.8),
-          ),
+          Icon(Icons.chevron_right, color: Colors.white.withOpacity(0.8)),
         ],
       ),
     );
@@ -470,19 +483,22 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       ),
       title: Text(
         title,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-        ),
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
       ),
       subtitle: Text(
         time,
-        style: TextStyle(
-          fontSize: 12,
-          color: Colors.grey[600],
-        ),
+        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
       ),
       trailing: Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
     );
+  }
+
+  SensorStatus _getSensorStatus(double value, double min, double max) {
+    if (value < min * 0.9 || value > max * 1.1) {
+      return SensorStatus.critical;
+    } else if (value < min || value > max) {
+      return SensorStatus.warning;
+    }
+    return SensorStatus.normal;
   }
 }
