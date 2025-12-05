@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/sensor_viewmodel.dart';
+import '../viewmodels/settings_viewmodel.dart';
 import '../widgets/sensor_tile.dart';
 import '../widgets/main_layout.dart';
 import '../services/tts_service.dart';
@@ -52,14 +53,17 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
+    final settingsViewModel = context.watch<SettingsViewModel>();
+    
     return MainLayout(
       title: 'Dashboard',
       currentIndex: 0,
       actions: [
-        IconButton(
-          icon: const Icon(Icons.volume_up, color: Colors.white),
-          onPressed: () => _speakSystemStatus(),
-        ),
+        if (settingsViewModel.ttsEnabled)
+          IconButton(
+            icon: const Icon(Icons.volume_up, color: Colors.white),
+            onPressed: () => _speakSystemStatus(),
+          ),
         IconButton(
           icon: const Icon(Icons.notifications_outlined, color: Colors.white),
           onPressed: () => Navigator.pushNamed(context, '/alerts'),

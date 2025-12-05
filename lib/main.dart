@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'viewmodels/sensor_viewmodel.dart';
+import 'viewmodels/settings_viewmodel.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 import 'screens/auth_screen.dart';
@@ -20,7 +21,10 @@ void main() async {
 
   runApp(
     MultiProvider(
-      providers: [ChangeNotifierProvider(create: (_) => SensorViewModel())],
+      providers: [
+        ChangeNotifierProvider(create: (_) => SensorViewModel()),
+        ChangeNotifierProvider(create: (_) => SettingsViewModel()),
+      ],
       child: const SmartHydroponicApp(),
     ),
   );

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/tts_service.dart';
+import '../viewmodels/settings_viewmodel.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -203,6 +205,17 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
                               value: _darkMode,
                               onChanged: (val) => setState(() => _darkMode = val),
                               iconColor: Colors.indigo,
+                            ),
+                            Divider(height: 1, color: Colors.grey[200]),
+                            Consumer<SettingsViewModel>(
+                              builder: (context, settings, _) => _buildSwitchTile(
+                                icon: Icons.volume_up,
+                                title: 'Text-to-Speech',
+                                subtitle: 'Enable voice announcements',
+                                value: settings.ttsEnabled,
+                                onChanged: (val) => settings.setTtsEnabled(val),
+                                iconColor: Colors.deepPurple,
+                              ),
                             ),
                           ],
                         ),

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:provider/provider.dart';
 import 'dart:math' as math;
 import '../../services/tts_service.dart';
+import '../../viewmodels/settings_viewmodel.dart';
 
 class SensorDetailScreen extends StatefulWidget {
   final Map<String, dynamic> sensor;
@@ -65,6 +67,7 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final statusColor = _getStatusColor(widget.sensor['status']);
+    final settingsViewModel = context.watch<SettingsViewModel>();
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -80,10 +83,11 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.volume_up, color: Colors.white),
-            onPressed: () => _speakSensorReading(),
-          ),
+          if (settingsViewModel.ttsEnabled)
+            IconButton(
+              icon: const Icon(Icons.volume_up, color: Colors.white),
+              onPressed: () => _speakSensorReading(),
+            ),
           IconButton(
             icon: const Icon(Icons.share, color: Colors.white),
             onPressed: () {
