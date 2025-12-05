@@ -497,8 +497,29 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
   Future<void> _speakSystemStatus() async {
     final tts = TtsService();
-    await tts.speak(
-      "All systems operational. Temperature 25.5 degrees celsius. pH level 6.8. Humidity 68 percent. Water level 85 percent."
-    );
+    final viewModel = context.read<SensorViewModel>();
+    
+    StringBuffer message = StringBuffer("System status report. ");
+    
+    if (viewModel.sensors.isEmpty) {
+      message.write("No sensor data available.");
+    } else {
+      message.write("All systems operational. ");
+      for (var sensor in viewModel.sensors) {
+        message.write("${sensor.name} is ${sensor.value} ");
+        // Add unit based on sensor type
+        if (sensor.name.toLowerCase().contains('temperature')) {
+          message.write("degrees celsius. ");
+        } else if (sensor.name.toLowerCase().contains('humidity')) {
+          message.write("percent. ");
+        } else if (sensor.name.toLowerCase().contains('water')) {
+          message.write("percent. ");
+        } else {
+          message.write(". ");
+        }
+      }
+    }
+    
+    await tts.speak(message.toString());
   }
 }
