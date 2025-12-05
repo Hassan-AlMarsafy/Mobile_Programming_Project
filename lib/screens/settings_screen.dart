@@ -217,6 +217,17 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
                                 iconColor: Colors.deepPurple,
                               ),
                             ),
+                            Divider(height: 1, color: Colors.grey[200]),
+                            Consumer<SettingsViewModel>(
+                              builder: (context, settings, _) => _buildSwitchTile(
+                                icon: Icons.mic,
+                                title: 'Speech Recognition',
+                                subtitle: 'Enable voice commands',
+                                value: settings.srEnabled,
+                                onChanged: (val) => settings.setSrEnabled(val),
+                                iconColor: Colors.red,
+                              ),
+                            ),
                           ],
                         ),
                       ),

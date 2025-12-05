@@ -35,7 +35,7 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
     );
     _fadeAnimation = CurvedAnimation(parent: _animationController, curve: Curves.easeIn);
     _animationController.forward();
-    _speechService.initialize();
+    // Don't initialize speech service here - only when SR is enabled and user taps mic
   }
 
   @override
@@ -134,7 +134,7 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
       actions: [
         Consumer<SettingsViewModel>(
           builder: (context, settings, _) {
-            if (!settings.ttsEnabled) return const SizedBox.shrink();
+            if (!settings.srEnabled) return const SizedBox.shrink();
             return IconButton(
               icon: Icon(
                 _isListening ? Icons.mic : Icons.mic_none,
