@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '/widgets/main_layout.dart';
 import '../../viewmodels/sensor_viewmodel.dart';
+import '../../utils/validators.dart';
 
 class SensorScreen extends StatefulWidget {
   const SensorScreen({super.key});

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/validators.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -7,7 +8,8 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProviderStateMixin {
+class _SettingsScreenState extends State<SettingsScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -35,7 +37,8 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
+    ).animate(
+        CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
 
     _animationController.forward();
   }
@@ -101,7 +104,8 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
                           child: CircleAvatar(
                             radius: 45,
                             backgroundColor: Colors.white,
-                            child: Icon(Icons.person, size: 50, color: Colors.green[700]),
+                            child: Icon(Icons.person,
+                                size: 50, color: Colors.green[700]),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -129,7 +133,8 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
                             foregroundColor: Colors.green[700],
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 10),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
                             ),
@@ -173,7 +178,8 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
                               title: 'Push Notifications',
                               subtitle: 'Receive alerts and updates',
                               value: _notificationsEnabled,
-                              onChanged: (val) => setState(() => _notificationsEnabled = val),
+                              onChanged: (val) =>
+                                  setState(() => _notificationsEnabled = val),
                               iconColor: Colors.orange,
                             ),
                             Divider(height: 1, color: Colors.grey[200]),
@@ -182,7 +188,8 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
                               title: 'Auto Watering',
                               subtitle: 'Automatically water plants',
                               value: _autoWatering,
-                              onChanged: (val) => setState(() => _autoWatering = val),
+                              onChanged: (val) =>
+                                  setState(() => _autoWatering = val),
                               iconColor: Colors.blue,
                             ),
                             Divider(height: 1, color: Colors.grey[200]),
@@ -191,7 +198,8 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
                               title: 'Biometric Authentication',
                               subtitle: 'Use fingerprint or face ID',
                               value: _biometricAuth,
-                              onChanged: (val) => setState(() => _biometricAuth = val),
+                              onChanged: (val) =>
+                                  setState(() => _biometricAuth = val),
                               iconColor: Colors.purple,
                             ),
                             Divider(height: 1, color: Colors.grey[200]),
@@ -200,7 +208,8 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
                               title: 'Dark Mode',
                               subtitle: 'Enable dark theme',
                               value: _darkMode,
-                              onChanged: (val) => setState(() => _darkMode = val),
+                              onChanged: (val) =>
+                                  setState(() => _darkMode = val),
                               iconColor: Colors.indigo,
                             ),
                           ],
@@ -255,7 +264,8 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
                               title: 'Watering Schedule',
                               subtitle: 'Configure auto-watering',
                               iconColor: Colors.cyan,
-                              onTap: () => _showSnackBar('Watering schedule settings'),
+                              onTap: () =>
+                                  _showSnackBar('Watering schedule settings'),
                             ),
                           ],
                         ),
@@ -301,7 +311,8 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
                               title: 'Privacy Policy',
                               subtitle: 'Read our privacy policy',
                               iconColor: Colors.blueGrey,
-                              onTap: () => _showSnackBar('Opening privacy policy'),
+                              onTap: () =>
+                                  _showSnackBar('Opening privacy policy'),
                             ),
                             Divider(height: 1, color: Colors.grey[200]),
                             _buildNavigationTile(
@@ -528,43 +539,64 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
   }
 
   void _showEditProfileDialog() {
+    final formKey = GlobalKey<FormState>();
+    final nameController = TextEditingController(text: 'John Doe');
+    final emailController = TextEditingController(text: 'john.doe@example.com');
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Edit Profile'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              initialValue: 'John Doe',
-              decoration: InputDecoration(
-                labelText: 'Name',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: nameController,
+                validator: Validators.name,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  labelText: 'Name',
+                  prefixIcon: const Icon(Icons.person_outline),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              initialValue: 'john.doe@example.com',
-              decoration: InputDecoration(
-                labelText: 'Email',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: emailController,
+                validator: Validators.email,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: const Icon(Icons.email_outlined),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () {
+              nameController.dispose();
+              emailController.dispose();
+              Navigator.pop(context);
+            },
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
-              _showSnackBar('Profile updated successfully');
+              if (formKey.currentState!.validate()) {
+                nameController.dispose();
+                emailController.dispose();
+                Navigator.pop(context);
+                _showSnackBar('Profile updated successfully');
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green[700],
@@ -625,12 +657,14 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+              Navigator.pushNamedAndRemoveUntil(
+                  context, '/login', (route) => false);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
             ),
-            child: const Text('Sign Out', style: TextStyle(color: Colors.white)),
+            child:
+                const Text('Sign Out', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

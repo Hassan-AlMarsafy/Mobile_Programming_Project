@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/validators.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/sensor_viewmodel.dart';
 
@@ -571,6 +572,7 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
   }
 
   void _showCalibrationDialog() {
+    final formKey = GlobalKey<FormState>();
     final TextEditingController calibrationController = TextEditingController(
       text: widget.sensor['calibration'].toString(),
     );
@@ -586,94 +588,131 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
               const Text('Calibrate Sensor'),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Raw Reading:',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                        Text(
-                          '${widget.sensor['value'].toStringAsFixed(2)} ${widget.sensor['unit']}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Calibrated:',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                        Text(
-                          '${_getCalibratedValue().toStringAsFixed(2)} ${widget.sensor['unit']}',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                            color: Colors.green[700],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: calibrationController,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                decoration: InputDecoration(
-                  labelText: 'Calibration Offset',
-                  hintText: 'Enter offset value',
-                  suffixText: widget.sensor['unit'],
-                  border: OutlineInputBorder(
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  helperText: 'Positive or negative value to adjust reading',
-                ),
-              ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue[50],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue[200]!),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, size: 16, color: Colors.blue[700]),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Calibration will take effect immediately',
-                        style: TextStyle(fontSize: 11, color: Colors.blue[900]),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Raw Reading:',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                          Text(
+                            '${widget.sensor['value'].toStringAsFixed(2)} ${widget.sensor['unit']}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Calibrated:',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                          Text(
+                            '${_getCalibratedValue().toStringAsFixed(2)} ${widget.sensor['unit']}',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              color: Colors.green[700],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: calibrationController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
+                  validator: (value) => Validators.calibrationOffset(
+                    value,
+                    min: widget.sensor['min'],
+                    max: widget.sensor['max'],
+                    sensorMin: widget.sensor['min'],
+                    sensorMax: widget.sensor['max'],
+                    unit: widget.sensor['unit'],
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Calibration Offset',
+                    hintText: 'Enter offset value',
+                    suffixText: widget.sensor['unit'],
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    helperText: 'Positive or negative value to adjust reading',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline,
+                          size: 16, color: Colors.blue[700]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Calibration will take effect immediately',
+                          style:
+                              TextStyle(fontSize: 11, color: Colors.blue[900]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline,
+                          size: 16, color: Colors.blue[700]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Calibration will take effect immediately',
+                          style:
+                              TextStyle(fontSize: 11, color: Colors.blue[900]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -682,37 +721,11 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
             ),
             ElevatedButton(
               onPressed: () {
-                final inputValue = double.tryParse(calibrationController.text);
-
-                // Validation
-                if (inputValue == null) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please enter a valid number'),
-                      backgroundColor: Colors.red,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
+                if (!formKey.currentState!.validate()) {
                   return;
                 }
 
-                // Reasonable calibration range (±50% of sensor range)
-                final sensorRange = widget.sensor['max'] - widget.sensor['min'];
-                final maxCalibration = sensorRange * 0.5;
-
-                if (inputValue.abs() > maxCalibration) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Calibration offset too large. Max allowed: ±${maxCalibration.toStringAsFixed(1)} ${widget.sensor['unit']}',
-                      ),
-                      backgroundColor: Colors.red,
-                      behavior: SnackBarBehavior.floating,
-                      duration: const Duration(seconds: 4),
-                    ),
-                  );
-                  return;
-                }
+                final inputValue = double.parse(calibrationController.text);
 
                 setState(() {
                   widget.sensor['calibration'] = inputValue;
