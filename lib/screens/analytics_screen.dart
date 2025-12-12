@@ -97,11 +97,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Text(
+          Text(
             'Date Range: Last 24 Hours',
-            style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black54),
+            style: TextStyle(fontWeight: FontWeight.w600, color: Theme.of(context).textTheme.bodySmall?.color),
           ),
-          Icon(Icons.calendar_today_outlined, color: Colors.green[700]),
+          Icon(Icons.calendar_today_outlined, color: Theme.of(context).colorScheme.primary),
         ],
       ),
     );
@@ -110,10 +110,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 20,
         fontWeight: FontWeight.w700,
-        color: Colors.black87,
+        color: Theme.of(context).textTheme.bodyLarge?.color,
       ),
     );
   }
@@ -149,7 +149,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
             children: [
               Text(metric, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               const SizedBox(height: 4),
-              Text(trend, style: const TextStyle(color: Colors.black54)),
+              Text(trend, style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color)),
             ],
           ),
         ),
@@ -199,9 +199,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Temperature & pH Levels',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black54),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodySmall?.color),
             ),
             const SizedBox(height: 24),
             SizedBox(
@@ -266,9 +266,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Humidity & Water Level',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black54),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodySmall?.color),
             ),
             const SizedBox(height: 24),
             SizedBox(
@@ -341,11 +341,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.green[600]!, Colors.green[700]!],
-          ),
+          color: Theme.of(context).colorScheme.primary,
           borderRadius: BorderRadius.circular(16),
         ),
         child: const Row(

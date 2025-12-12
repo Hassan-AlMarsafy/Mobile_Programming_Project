@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../utils/validators.dart';
 import '../services/firestore_service.dart';
+import '../viewmodels/theme_viewmodel.dart';
 import '../models/sensor_thresholds.dart';
 import '../models/sensor_calibration.dart';
 import '../models/user.dart';
@@ -30,7 +32,6 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   bool _notificationsEnabled = true;
   bool _autoWatering = true;
-  bool _darkMode = false;
   bool _biometricAuth = false;
   String _temperatureUnit = 'Celsius';
   String _language = 'English';
@@ -152,12 +153,10 @@ class _SettingsScreenState extends State<SettingsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        backgroundColor: Colors.green[700],
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
@@ -165,7 +164,6 @@ class _SettingsScreenState extends State<SettingsScreen>
           style: TextStyle(
             fontWeight: FontWeight.w700,
             fontSize: 20,
-            color: Colors.white,
           ),
         ),
       ),
@@ -181,11 +179,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Colors.green[700]!, Colors.green[600]!],
-                    ),
+                    color: Theme.of(context).colorScheme.primary,
                     borderRadius: const BorderRadius.only(
                       bottomLeft: Radius.circular(30),
                       bottomRight: Radius.circular(30),
@@ -199,32 +193,32 @@ class _SettingsScreenState extends State<SettingsScreen>
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 3),
+                            border: Border.all(color: Theme.of(context).colorScheme.onPrimary, width: 3),
                           ),
                           child: CircleAvatar(
                             radius: 45,
-                            backgroundColor: Colors.white,
+                            backgroundColor: Theme.of(context).colorScheme.onPrimary,
                             child: Icon(Icons.person,
-                                size: 50, color: Colors.green[700]),
+                                size: 50, color: Theme.of(context).colorScheme.primary),
                           ),
                         ),
                         const SizedBox(height: 16),
                         _isLoadingProfile
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 16,
                                 height: 16,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
                                   valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white),
+                                      Theme.of(context).colorScheme.onPrimary),
                                 ),
                               )
                             : Text(
                                 _userProfile?.displayName ?? 'User',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w800,
-                                  color: Colors.white,
+                                  color: Theme.of(context).colorScheme.onPrimary,
                                 ),
                               ),
                         const SizedBox(height: 4),
@@ -234,7 +228,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 _userProfile?.email ?? 'user@example.com',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Colors.white.withOpacity(0.9),
+                                  color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.9),
                                 ),
                               ),
                         const SizedBox(height: 16),
@@ -243,8 +237,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                             _showEditProfileDialog();
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            foregroundColor: Colors.green[700],
+                            backgroundColor: Theme.of(context).colorScheme.onPrimary,
+                            foregroundColor: Theme.of(context).colorScheme.primary,
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 24, vertical: 10),
                             shape: RoundedRectangleBorder(
@@ -269,12 +263,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'System Settings',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
-                          color: Colors.black87,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -294,7 +288,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                                   setState(() => _notificationsEnabled = val),
                               iconColor: Colors.orange,
                             ),
-                            Divider(height: 1, color: Colors.grey[200]),
+                            Divider(height: 1, color: Theme.of(context).dividerColor),
                             _buildSwitchTile(
                               icon: Icons.water_drop,
                               title: 'Auto Watering',
@@ -304,7 +298,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                                   setState(() => _autoWatering = val),
                               iconColor: Colors.blue,
                             ),
-                            Divider(height: 1, color: Colors.grey[200]),
+                            Divider(height: 1, color: Theme.of(context).dividerColor),
                             _buildSwitchTile(
                               icon: Icons.fingerprint,
                               title: 'Biometric Authentication',
@@ -314,15 +308,18 @@ class _SettingsScreenState extends State<SettingsScreen>
                                   setState(() => _biometricAuth = val),
                               iconColor: Colors.purple,
                             ),
-                            Divider(height: 1, color: Colors.grey[200]),
-                            _buildSwitchTile(
-                              icon: Icons.dark_mode,
-                              title: 'Dark Mode',
-                              subtitle: 'Enable dark theme',
-                              value: _darkMode,
-                              onChanged: (val) =>
-                                  setState(() => _darkMode = val),
-                              iconColor: Colors.indigo,
+                            Divider(height: 1, color: Theme.of(context).dividerColor),
+                            Consumer<ThemeViewModel>(
+                              builder: (context, themeViewModel, child) {
+                                return _buildSwitchTile(
+                                  icon: Icons.dark_mode,
+                                  title: 'Dark Mode',
+                                  subtitle: 'Enable dark theme',
+                                  value: themeViewModel.isDarkMode,
+                                  onChanged: (val) => themeViewModel.setThemeMode(val),
+                                  iconColor: Colors.indigo,
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -342,12 +339,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
+                          Text(
                             'Sensor Thresholds',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: Colors.black87,
+                              color: Theme.of(context).textTheme.bodyLarge?.color,
                             ),
                           ),
                           if (_isLoadingThresholds)
@@ -357,7 +354,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.green[700]!),
+                                    Theme.of(context).colorScheme.primary),
                               ),
                             ),
                         ],
@@ -378,7 +375,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               iconColor: Colors.red,
                               onTap: () => _showTemperatureThresholdDialog(),
                             ),
-                            Divider(height: 1, color: Colors.grey[200]),
+                            Divider(height: 1, color: Theme.of(context).dividerColor),
                             _buildNavigationTile(
                               icon: Icons.water_drop,
                               title: 'Water Level',
@@ -387,7 +384,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               iconColor: Colors.blue,
                               onTap: () => _showWaterLevelThresholdDialog(),
                             ),
-                            Divider(height: 1, color: Colors.grey[200]),
+                            Divider(height: 1, color: Theme.of(context).dividerColor),
                             _buildNavigationTile(
                               icon: Icons.science,
                               title: 'pH Level',
@@ -396,7 +393,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               iconColor: Colors.purple,
                               onTap: () => _showPhThresholdDialog(),
                             ),
-                            Divider(height: 1, color: Colors.grey[200]),
+                            Divider(height: 1, color: Theme.of(context).dividerColor),
                             _buildNavigationTile(
                               icon: Icons.opacity,
                               title: 'TDS/EC Level',
@@ -405,7 +402,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               iconColor: Colors.amber,
                               onTap: () => _showTdsThresholdDialog(),
                             ),
-                            Divider(height: 1, color: Colors.grey[200]),
+                            Divider(height: 1, color: Theme.of(context).dividerColor),
                             _buildNavigationTile(
                               icon: Icons.wb_sunny,
                               title: 'Light Intensity',
@@ -432,12 +429,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
+                          Text(
                             'System Calibration',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: Colors.black87,
+                              color: Theme.of(context).textTheme.bodyLarge?.color,
                             ),
                           ),
                           if (_isLoadingCalibration)
@@ -482,7 +479,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               calibration: _calibration.getSensor('temperature'),
                               iconColor: Colors.red,
                             ),
-                            Divider(height: 1, color: Colors.grey[200]),
+                            Divider(height: 1, color: Theme.of(context).dividerColor),
                             _buildCalibrationTile(
                               icon: Icons.water_drop,
                               title: 'Water Level Sensor',
@@ -490,7 +487,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               calibration: _calibration.getSensor('waterLevel'),
                               iconColor: Colors.blue,
                             ),
-                            Divider(height: 1, color: Colors.grey[200]),
+                            Divider(height: 1, color: Theme.of(context).dividerColor),
                             _buildCalibrationTile(
                               icon: Icons.science,
                               title: 'pH Sensor',
@@ -498,7 +495,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               calibration: _calibration.getSensor('ph'),
                               iconColor: Colors.purple,
                             ),
-                            Divider(height: 1, color: Colors.grey[200]),
+                            Divider(height: 1, color: Theme.of(context).dividerColor),
                             _buildCalibrationTile(
                               icon: Icons.opacity,
                               title: 'TDS/EC Sensor',
@@ -506,7 +503,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               calibration: _calibration.getSensor('tds'),
                               iconColor: Colors.amber,
                             ),
-                            Divider(height: 1, color: Colors.grey[200]),
+                            Divider(height: 1, color: Theme.of(context).dividerColor),
                             _buildCalibrationTile(
                               icon: Icons.wb_sunny,
                               title: 'Light Sensor',
@@ -529,12 +526,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Preferences',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
-                          color: Colors.black87,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -552,7 +549,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               iconColor: Colors.red,
                               onTap: () => _showTemperatureUnitDialog(),
                             ),
-                            Divider(height: 1, color: Colors.grey[200]),
+                            Divider(height: 1, color: Theme.of(context).dividerColor),
                             _buildNavigationTile(
                               icon: Icons.language,
                               title: 'Language',
@@ -560,7 +557,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               iconColor: Colors.teal,
                               onTap: () => _showLanguageDialog(),
                             ),
-                            Divider(height: 1, color: Colors.grey[200]),
+                            Divider(height: 1, color: Theme.of(context).dividerColor),
                             _buildNavigationTile(
                               icon: Icons.schedule,
                               title: 'Watering Schedule',
@@ -584,12 +581,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'About',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
-                          color: Colors.black87,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -607,7 +604,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               iconColor: Colors.amber,
                               onTap: () => _showSnackBar('Opening help center'),
                             ),
-                            Divider(height: 1, color: Colors.grey[200]),
+                            Divider(height: 1, color: Theme.of(context).dividerColor),
                             _buildNavigationTile(
                               icon: Icons.privacy_tip_outlined,
                               title: 'Privacy Policy',
@@ -616,7 +613,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               onTap: () =>
                                   _showSnackBar('Opening privacy policy'),
                             ),
-                            Divider(height: 1, color: Colors.grey[200]),
+                            Divider(height: 1, color: Theme.of(context).dividerColor),
                             _buildNavigationTile(
                               icon: Icons.info_outline,
                               title: 'About App',
@@ -639,12 +636,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Account',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
-                          color: Colors.black87,
+                          color: Theme.of(context).textTheme.bodyLarge?.color,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -662,7 +659,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               iconColor: Colors.deepOrange,
                               onTap: _showChangePasswordDialog,
                             ),
-                            Divider(height: 1, color: Colors.grey[200]),
+                            Divider(height: 1, color: Theme.of(context).dividerColor),
                             _buildNavigationTile(
                               icon: Icons.logout,
                               title: 'Sign Out',
@@ -715,13 +712,13 @@ class _SettingsScreenState extends State<SettingsScreen>
         subtitle,
         style: TextStyle(
           fontSize: 12,
-          color: Colors.grey[600],
+          color: Theme.of(context).textTheme.bodySmall?.color,
         ),
       ),
       trailing: Switch(
         value: value,
         onChanged: onChanged,
-        activeColor: Colors.green[700],
+        activeColor: Theme.of(context).colorScheme.primary,
       ),
     );
   }
@@ -754,10 +751,10 @@ class _SettingsScreenState extends State<SettingsScreen>
         subtitle,
         style: TextStyle(
           fontSize: 12,
-          color: Colors.grey[600],
+          color: Theme.of(context).textTheme.bodySmall?.color,
         ),
       ),
-      trailing: Icon(Icons.chevron_right, color: Colors.grey[400]),
+      trailing: Icon(Icons.chevron_right, color: Theme.of(context).textTheme.bodySmall?.color),
       onTap: onTap,
     );
   }
@@ -877,12 +874,12 @@ class _SettingsScreenState extends State<SettingsScreen>
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.grey[100],
+                    color: Theme.of(context).colorScheme.surfaceVariant,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.email, color: Colors.grey[600], size: 20),
+                      Icon(Icons.email, color: Theme.of(context).textTheme.bodySmall?.color, size: 20),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(
@@ -892,7 +889,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                               'Email',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey[600],
+                                color: Theme.of(context).textTheme.bodySmall?.color,
                               ),
                             ),
                             Text(
@@ -913,7 +910,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                   'Note: Email cannot be changed here',
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.grey[600],
+                    color: Theme.of(context).textTheme.bodySmall?.color,
                   ),
                 ),
               ],
@@ -1087,19 +1084,19 @@ class _SettingsScreenState extends State<SettingsScreen>
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.blue[50],
+                      color: Theme.of(context).colorScheme.primaryContainer,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                        Icon(Icons.info_outline, color: Theme.of(context).colorScheme.onPrimaryContainer, size: 20),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Password must be at least 6 characters long',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.blue[700],
+                              color: Theme.of(context).colorScheme.onPrimaryContainer,
                             ),
                           ),
                         ),
@@ -1200,19 +1197,19 @@ class _SettingsScreenState extends State<SettingsScreen>
             const SizedBox(height: 12),
             Text(
               'SMART Hydroponic is your complete solution for monitoring and controlling your hydroponic garden system.',
-              style: TextStyle(color: Colors.grey[700]),
+              style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
             ),
             const SizedBox(height: 12),
             Text(
               '© 2025 SMART Hydroponic Team',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Close', style: TextStyle(color: Colors.green[700])),
+            child: Text('Close', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
           ),
         ],
       ),
@@ -1844,7 +1841,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         ],
       ),
       trailing: IconButton(
-        icon: Icon(Icons.tune, color: Colors.green[700]),
+        icon: Icon(Icons.tune, color: Theme.of(context).colorScheme.primary),
         onPressed: () => _showSensorCalibrationDialog(sensorType, calibration),
       ),
     );
@@ -1877,7 +1874,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            Icon(Icons.tune, color: Colors.green[700]),
+            Icon(Icons.tune, color: Theme.of(context).colorScheme.primary),
             const SizedBox(width: 8),
             Expanded(
               child: Text('Calibrate ${sensorInfo['name']} Sensor'),

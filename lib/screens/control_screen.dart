@@ -72,10 +72,10 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 20,
         fontWeight: FontWeight.w700,
-        color: Colors.black87,
+        color: Theme.of(context).textTheme.bodyLarge?.color,
       ),
     );
   }
@@ -260,11 +260,11 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
             children: [
               Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 2),
-              Text(subtitle, style: const TextStyle(color: Colors.black54, fontSize: 12)),
+              Text(subtitle, style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12)),
             ],
           ),
         ),
-        Text(time, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        Text(time, style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12)),
       ],
     );
   }

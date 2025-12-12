@@ -81,11 +81,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.green[700]!, Colors.green[600]!],
-                      ),
+                      color: Theme.of(context).colorScheme.primary,
                       borderRadius: const BorderRadius.only(
                         bottomLeft: Radius.circular(30),
                         bottomRight: Radius.circular(30),
@@ -124,12 +120,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'System Status',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
-                            color: Colors.black87,
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -144,12 +140,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'Sensor Readings',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
-                            color: Colors.black87,
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                         ),
                         TextButton(
@@ -158,7 +154,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           child: Text(
                             'View All',
                             style: TextStyle(
-                              color: Colors.green[700],
+                              color: Theme.of(context).colorScheme.primary,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -246,12 +242,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Recent Activity',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
-                            color: Colors.black87,
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -275,15 +271,11 @@ class _DashboardScreenState extends State<DashboardScreen>
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.green[600]!, Colors.green[700]!],
-        ),
+        color: Theme.of(context).colorScheme.primary,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.green.withOpacity(0.3),
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -346,7 +338,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[200]!, width: 1.5),
+          border: Border.all(color: Theme.of(context).dividerColor!, width: 1.5),
           boxShadow: [
             BoxShadow(
               color: Colors.grey.withOpacity(0.1),
@@ -368,10 +360,10 @@ class _DashboardScreenState extends State<DashboardScreen>
             const SizedBox(height: 12),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
             ),
           ],
@@ -392,21 +384,21 @@ class _DashboardScreenState extends State<DashboardScreen>
             time: '5 minutes ago',
             color: Colors.blue,
           ),
-          Divider(height: 1, color: Colors.grey[200]),
+          Divider(height: 1, color: Theme.of(context).dividerColor),
           _buildActivityItem(
             icon: Icons.thermostat,
             title: 'Temperature adjusted',
             time: '15 minutes ago',
             color: Colors.orange,
           ),
-          Divider(height: 1, color: Colors.grey[200]),
+          Divider(height: 1, color: Theme.of(context).dividerColor),
           _buildActivityItem(
             icon: Icons.warning_amber_rounded,
             title: 'pH level warning cleared',
             time: '1 hour ago',
             color: Colors.amber,
           ),
-          Divider(height: 1, color: Colors.grey[200]),
+          Divider(height: 1, color: Theme.of(context).dividerColor),
           _buildActivityItem(
             icon: Icons.lightbulb,
             title: 'Grow lights turned on',
@@ -440,9 +432,9 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
       subtitle: Text(
         time,
-        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
       ),
-      trailing: Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
+      trailing: Icon(Icons.chevron_right, color: Theme.of(context).textTheme.bodySmall?.color, size: 20),
     );
   }
 

@@ -21,30 +21,20 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.green[50]!, Colors.white],
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                   // Header icon
                   Container(
                     width: 80,
                     height: 80,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.green[700]!, Colors.green[500]!],
-                      ),
+                      color: Theme.of(context).colorScheme.primary,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child:
@@ -53,12 +43,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 32),
 
                   // Title
-                  const Text(
+                  Text(
                     'Welcome Back',
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.w800,
-                      color: Colors.black87,
+                      color: const Color(0xFF2E7D32),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -66,7 +56,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   // Subtitle
                   Text(
                     'Sign in to your account to continue',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodySmall?.color),
                   ),
                   const SizedBox(height: 32),
 
@@ -84,12 +74,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            BorderSide(color: Colors.grey[300]!, width: 1.5),
+                            BorderSide(color: Theme.of(context).dividerColor, width: 1.5),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            BorderSide(color: Colors.green[700]!, width: 2),
+                            BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
                       ),
                     ),
                   ),
@@ -115,12 +105,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            BorderSide(color: Colors.grey[300]!, width: 1.5),
+                            BorderSide(color: Theme.of(context).dividerColor, width: 1.5),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            BorderSide(color: Colors.green[700]!, width: 2),
+                            BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
                       ),
                     ),
                   ),
@@ -134,7 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Text(
                         'Forgot Password?',
                         style: TextStyle(
-                          color: Colors.green[700],
+                          color: Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -177,7 +167,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             }
                           },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green[700],
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
@@ -207,16 +197,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   // Divider
                   Row(
                     children: [
-                      Expanded(child: Divider(color: Colors.grey[300])),
+                      Expanded(child: Divider(color: Theme.of(context).dividerColor)),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         child: Text(
                           'New User?',
                           style:
-                              TextStyle(color: Colors.grey[600], fontSize: 12),
+                              TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12),
                         ),
                       ),
-                      Expanded(child: Divider(color: Colors.grey[300])),
+                      Expanded(child: Divider(color: Theme.of(context).dividerColor)),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -226,7 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: () => Navigator.pushNamed(context, '/register'),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: BorderSide(color: Colors.green[700]!, width: 2),
+                      side: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
@@ -235,7 +225,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: Colors.green[700],
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
                   ),
@@ -244,8 +234,8 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
-      ),
-    );
+      );
+    
   }
 
   @override
@@ -277,47 +267,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.green[50]!, Colors.white],
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Back button
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.grey[200],
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Back button
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Theme.of(context).colorScheme.surface.withOpacity(0.3),
                         ),
                         child: Icon(Icons.arrow_back,
-                            color: Colors.grey[800], size: 20),
+                            color: Theme.of(context).textTheme.bodyLarge?.color, size: 20),
                       ),
                     ),
                   ),
                   const SizedBox(height: 24),
 
                   // Title
-                  const Text(
+                  Text(
                     'Create Account',
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.w800,
-                      color: Colors.black87,
+                      color: const Color(0xFF2E7D32),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -325,7 +307,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   // Subtitle
                   Text(
                     'Join us to manage your hydroponic garden',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodySmall?.color),
                   ),
                   const SizedBox(height: 32),
 
@@ -342,12 +324,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            BorderSide(color: Colors.grey[300]!, width: 1.5),
+                            BorderSide(color: Theme.of(context).dividerColor, width: 1.5),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            BorderSide(color: Colors.green[700]!, width: 2),
+                            BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
                       ),
                     ),
                   ),
@@ -366,12 +348,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            BorderSide(color: Colors.grey[300]!, width: 1.5),
+                            BorderSide(color: Theme.of(context).dividerColor, width: 1.5),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            BorderSide(color: Colors.green[700]!, width: 2),
+                            BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
                       ),
                     ),
                   ),
@@ -402,12 +384,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            BorderSide(color: Colors.grey[300]!, width: 1.5),
+                            BorderSide(color: Theme.of(context).dividerColor, width: 1.5),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            BorderSide(color: Colors.green[700]!, width: 2),
+                            BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
                       ),
                     ),
                   ),
@@ -434,12 +416,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            BorderSide(color: Colors.grey[300]!, width: 1.5),
+                            BorderSide(color: Theme.of(context).dividerColor, width: 1.5),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide:
-                            BorderSide(color: Colors.green[700]!, width: 2),
+                            BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
                       ),
                     ),
                   ),
@@ -487,7 +469,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             }
                           },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green[700],
+                      backgroundColor: Theme.of(context).colorScheme.primary,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
@@ -520,7 +502,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     children: [
                       Text(
                         'Already have an account? ',
-                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                        style: TextStyle(fontSize: 13, color: Theme.of(context).textTheme.bodySmall?.color),
                       ),
                       TextButton(
                         onPressed: () => Navigator.pop(context),
@@ -529,7 +511,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: Colors.green[700],
+                            color: Theme.of(context).colorScheme.primary,
                           ),
                         ),
                       ),
@@ -540,8 +522,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ),
           ),
         ),
-      ),
-    );
+      );
+    
   }
 
   @override
@@ -571,33 +553,25 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.green[50]!, Colors.white],
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Back button
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.grey[200],
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Back button
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Theme.of(context).colorScheme.surface.withOpacity(0.3),
                       ),
                       child: Icon(Icons.arrow_back,
-                          color: Colors.grey[800], size: 20),
+                          color: Theme.of(context).textTheme.bodyLarge?.color, size: 20),
                     ),
                   ),
                 ),
@@ -609,9 +583,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   height: 80,
                   margin: const EdgeInsets.only(bottom: 24),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.amber[700]!, Colors.amber[500]!],
-                    ),
+                    color: Theme.of(context).colorScheme.primary,
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Icon(Icons.email_outlined,
@@ -619,12 +591,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 ),
 
                 // Title
-                const Text(
+                Text(
                   'Reset Password',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
-                    color: Colors.black87,
+                    color: const Color(0xFF2E7D32),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -633,7 +605,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 Text(
                   'Enter your email address and we\'ll send you a link to reset your password.',
                   style: TextStyle(
-                      fontSize: 14, color: Colors.grey[600], height: 1.5),
+                      fontSize: 14, color: Theme.of(context).textTheme.bodySmall?.color, height: 1.5),
                 ),
                 const SizedBox(height: 32),
 
@@ -656,12 +628,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                  color: Colors.grey[300]!, width: 1.5),
+                                  color: Theme.of(context).dividerColor, width: 1.5),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                  color: Colors.green[700]!, width: 2),
+                                  color: Theme.of(context).colorScheme.primary, width: 2),
                             ),
                           ),
                         ),
@@ -708,7 +680,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                   });
                                 },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green[700],
+                            backgroundColor: Theme.of(context).colorScheme.primary,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12)),
@@ -741,9 +713,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: Colors.green[50],
+                      color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.green[200]!, width: 1.5),
+                      border: Border.all(color: Theme.of(context).colorScheme.primaryContainer, width: 1.5),
                     ),
                     child: Column(
                       children: [
@@ -751,11 +723,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           width: 60,
                           height: 60,
                           decoration: BoxDecoration(
-                            color: Colors.green[100],
+                            color: Theme.of(context).colorScheme.primaryContainer,
                             shape: BoxShape.circle,
                           ),
                           child: Icon(Icons.check_circle,
-                              color: Colors.green[700], size: 32),
+                              color: Theme.of(context).colorScheme.primary, size: 32),
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -763,7 +735,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
-                            color: Colors.green[900],
+                            color: Theme.of(context).colorScheme.primary,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -771,7 +743,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           'We\'ve sent a password reset link to ${_emailCtrl.text}. Check your inbox and follow the instructions.',
                           textAlign: TextAlign.center,
                           style:
-                              TextStyle(fontSize: 13, color: Colors.green[700]),
+                              TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.primary),
                         ),
                       ],
                     ),
@@ -781,7 +753,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     onPressed: () => Navigator.pop(context),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: BorderSide(color: Colors.green[700]!, width: 2),
+                      side: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
@@ -790,7 +762,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: Colors.green[700],
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
                   ),
@@ -799,8 +771,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 
   @override

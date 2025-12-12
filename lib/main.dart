@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'viewmodels/sensor_viewmodel.dart';
 import 'viewmodels/auth_viewmodel.dart';
+import 'viewmodels/theme_viewmodel.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 import 'screens/auth_screen.dart';
@@ -26,6 +27,7 @@ void main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => SensorViewModel()),
         ChangeNotifierProvider(create: (_) => AuthViewModel()),
+        ChangeNotifierProvider(create: (_) => ThemeViewModel()),
       ],
       child: const SmartHydroponicApp(),
     ),
@@ -37,14 +39,19 @@ class SmartHydroponicApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'SMART Hydroponic',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      // Remove the 'home' property and use initialRoute instead
-      initialRoute: '/splash', // Start with splash screen
-      routes: AppRoutes.routes,
-      onGenerateRoute: AppRoutes.onGenerateRoute,
+    return Consumer<ThemeViewModel>(
+      builder: (context, themeViewModel, child) {
+        return MaterialApp(
+          title: 'SMART Hydroponic',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeViewModel.themeMode,
+          initialRoute: '/splash',
+          routes: AppRoutes.routes,
+          onGenerateRoute: AppRoutes.onGenerateRoute,
+        );
+      },
     );
   }
 }

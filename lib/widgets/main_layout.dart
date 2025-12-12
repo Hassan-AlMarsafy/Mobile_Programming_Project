@@ -25,13 +25,11 @@ class _MainLayoutState extends State<MainLayout> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        backgroundColor: Colors.green[700],
         elevation: 0,
         leading: widget.showBackButton
             ? IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         )
             : null,
@@ -40,7 +38,6 @@ class _MainLayoutState extends State<MainLayout> {
           style: const TextStyle(
             fontWeight: FontWeight.w700,
             fontSize: 20,
-            color: Colors.white,
           ),
         ),
         actions: widget.actions,
@@ -69,8 +66,7 @@ class _MainLayoutState extends State<MainLayout> {
       ),
       child: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: Colors.green[700],
+        selectedItemColor: Theme.of(context).colorScheme.primary,
         unselectedItemColor: Colors.grey[400],
         selectedFontSize: 12,
         unselectedFontSize: 12,

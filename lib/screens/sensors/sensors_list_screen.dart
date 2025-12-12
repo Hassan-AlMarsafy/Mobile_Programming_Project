@@ -88,9 +88,7 @@ class _SensorScreenState extends State<SensorScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Colors.green[700]!, Colors.green[600]!],
-                    ),
+                    color: Theme.of(context).colorScheme.primary,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(

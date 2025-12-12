@@ -33,16 +33,13 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        backgroundColor: Colors.green[700],
         elevation: 0,
         title: Text(
           widget.sensor['name'],
           style: const TextStyle(
             fontWeight: FontWeight.w700,
             fontSize: 20,
-            color: Colors.white,
           ),
         ),
         actions: [
@@ -214,13 +211,13 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                                   Icon(
                                     Icons.cloud_off,
                                     size: 48,
-                                    color: Colors.grey[400],
+                                    color: Theme.of(context).textTheme.bodySmall?.color,
                                   ),
                                   const SizedBox(height: 12),
                                   Text(
                                     'No Firebase data available',
                                     style: TextStyle(
-                                      color: Colors.grey[600],
+                                      color: Theme.of(context).textTheme.bodySmall?.color,
                                       fontSize: 14,
                                     ),
                                   ),
@@ -279,7 +276,7 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: Colors.grey[100],
+                                  color: Theme.of(context).colorScheme.surfaceVariant,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Row(
@@ -288,14 +285,14 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                                     Icon(
                                       Icons.access_time,
                                       size: 14,
-                                      color: Colors.grey[600],
+                                      color: Theme.of(context).textTheme.bodySmall?.color,
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
                                       'Last updated: ${sensorData.timestamp.toString().substring(11, 19)}',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: Colors.grey[600],
+                                        color: Theme.of(context).textTheme.bodySmall?.color,
                                       ),
                                     ),
                                   ],
@@ -470,7 +467,7 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
             const SizedBox(height: 8),
             Text(
               label,
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
             ),
             const SizedBox(height: 4),
             Text(
@@ -501,7 +498,7 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
             children: [
               Text(
                 label,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
               ),
               const SizedBox(height: 2),
               Text(
@@ -543,7 +540,7 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                 label,
                 style: TextStyle(
                   fontSize: 13,
-                  color: Colors.grey[600],
+                  color: Theme.of(context).textTheme.bodySmall?.color,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -597,7 +594,7 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.grey[100],
+                    color: Theme.of(context).colorScheme.surfaceVariant,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Column(
