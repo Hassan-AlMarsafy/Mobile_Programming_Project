@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/validators.dart';
+import '../services/firestore_service.dart';
+import '../models/sensor_thresholds.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -13,6 +17,10 @@ class _SettingsScreenState extends State<SettingsScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+
+  final FirestoreService _firestoreService = FirestoreService();
+  SensorThresholds _thresholds = SensorThresholds.defaultThresholds();
+  bool _isLoadingThresholds = true;
 
   bool _notificationsEnabled = true;
   bool _autoWatering = true;
@@ -41,6 +49,42 @@ class _SettingsScreenState extends State<SettingsScreen>
         CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
 
     _animationController.forward();
+    
+    // Monitor auth state
+    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+      if (user != null && mounted) {
+        _loadThresholds();
+      }
+    });
+    
+    _loadThresholds();
+  }
+
+  Future<void> _loadThresholds() async {
+    final user = FirebaseAuth.instance.currentUser;
+    
+    if (user != null) {
+      final thresholds = await _firestoreService.getSensorThresholds(user.uid);
+      if (thresholds != null) {
+        setState(() {
+          _thresholds = thresholds;
+          _isLoadingThresholds = false;
+        });
+      } else {
+        setState(() {
+          _isLoadingThresholds = false;
+        });
+      }
+    } else {
+      setState(() {
+        _isLoadingThresholds = false;
+      });
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          _showSnackBar('Please sign in to save settings');
+        }
+      });
+    }
   }
 
   @override
@@ -211,6 +255,96 @@ class _SettingsScreenState extends State<SettingsScreen>
                               onChanged: (val) =>
                                   setState(() => _darkMode = val),
                               iconColor: Colors.indigo,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // Sensor Thresholds Section
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Sensor Thresholds',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          if (_isLoadingThresholds)
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.green[700]!),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          children: [
+                            _buildNavigationTile(
+                              icon: Icons.thermostat,
+                              title: 'Temperature Range',
+                              subtitle:
+                                  '${_thresholds.temperatureMin}°C - ${_thresholds.temperatureMax}°C',
+                              iconColor: Colors.red,
+                              onTap: () => _showTemperatureThresholdDialog(),
+                            ),
+                            Divider(height: 1, color: Colors.grey[200]),
+                            _buildNavigationTile(
+                              icon: Icons.water_drop,
+                              title: 'Water Level',
+                              subtitle:
+                                  'Min: ${_thresholds.waterLevelMin}%, Critical: ${_thresholds.waterLevelCritical}%',
+                              iconColor: Colors.blue,
+                              onTap: () => _showWaterLevelThresholdDialog(),
+                            ),
+                            Divider(height: 1, color: Colors.grey[200]),
+                            _buildNavigationTile(
+                              icon: Icons.science,
+                              title: 'pH Level',
+                              subtitle:
+                                  '${_thresholds.phMin} - ${_thresholds.phMax}',
+                              iconColor: Colors.purple,
+                              onTap: () => _showPhThresholdDialog(),
+                            ),
+                            Divider(height: 1, color: Colors.grey[200]),
+                            _buildNavigationTile(
+                              icon: Icons.opacity,
+                              title: 'TDS/EC Level',
+                              subtitle:
+                                  '${_thresholds.tdsMin} - ${_thresholds.tdsMax} ppm',
+                              iconColor: Colors.amber,
+                              onTap: () => _showTdsThresholdDialog(),
+                            ),
+                            Divider(height: 1, color: Colors.grey[200]),
+                            _buildNavigationTile(
+                              icon: Icons.wb_sunny,
+                              title: 'Light Intensity',
+                              subtitle:
+                                  '${_thresholds.lightIntensityMin} - ${_thresholds.lightIntensityMax} lux',
+                              iconColor: Colors.orange,
+                              onTap: () => _showLightIntensityThresholdDialog(),
                             ),
                           ],
                         ),
@@ -672,6 +806,8 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   void _showSnackBar(String message) {
+    if (!mounted) return;
+    
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -680,5 +816,514 @@ class _SettingsScreenState extends State<SettingsScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
+  }
+
+  // ============ THRESHOLD DIALOGS ============
+
+  void _showTemperatureThresholdDialog() {
+    final minController =
+        TextEditingController(text: _thresholds.temperatureMin.toString());
+    final maxController =
+        TextEditingController(text: _thresholds.temperatureMax.toString());
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Temperature Range'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: minController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Minimum (°C)',
+                  prefixIcon: const Icon(Icons.thermostat),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Required';
+                  }
+                  final num = double.tryParse(value);
+                  if (num == null) {
+                    return 'Invalid number';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: maxController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Maximum (°C)',
+                  prefixIcon: const Icon(Icons.thermostat),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Required';
+                  }
+                  final num = double.tryParse(value);
+                  if (num == null) {
+                    return 'Invalid number';
+                  }
+                  final min = double.tryParse(minController.text);
+                  if (min != null && num <= min) {
+                    return 'Max must be > Min';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (formKey.currentState!.validate()) {
+                final min = double.parse(minController.text);
+                final max = double.parse(maxController.text);
+                await _saveThreshold(
+                  _thresholds.copyWith(
+                    temperatureMin: min,
+                    temperatureMax: max,
+                    lastUpdated: DateTime.now(),
+                  ),
+                );
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green[700],
+            ),
+            child: const Text('Save', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showWaterLevelThresholdDialog() {
+    final minController =
+        TextEditingController(text: _thresholds.waterLevelMin.toString());
+    final criticalController =
+        TextEditingController(text: _thresholds.waterLevelCritical.toString());
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Water Level Thresholds'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: minController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Minimum Level (%)',
+                  prefixIcon: const Icon(Icons.water_drop),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Required';
+                  }
+                  final num = double.tryParse(value);
+                  if (num == null || num < 0 || num > 100) {
+                    return 'Enter 0-100';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: criticalController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Critical Level (%)',
+                  prefixIcon: const Icon(Icons.warning_amber),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Required';
+                  }
+                  final num = double.tryParse(value);
+                  if (num == null || num < 0 || num > 100) {
+                    return 'Enter 0-100';
+                  }
+                  final min = double.tryParse(minController.text);
+                  if (min != null && num >= min) {
+                    return 'Critical must be < Min';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (formKey.currentState!.validate()) {
+                final min = double.parse(minController.text);
+                final critical = double.parse(criticalController.text);
+                await _saveThreshold(
+                  _thresholds.copyWith(
+                    waterLevelMin: min,
+                    waterLevelCritical: critical,
+                    lastUpdated: DateTime.now(),
+                  ),
+                );
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green[700],
+            ),
+            child: const Text('Save', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPhThresholdDialog() {
+    final minController =
+        TextEditingController(text: _thresholds.phMin.toString());
+    final maxController =
+        TextEditingController(text: _thresholds.phMax.toString());
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('pH Level Range'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: minController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Minimum pH',
+                  prefixIcon: const Icon(Icons.science),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Required';
+                  }
+                  final num = double.tryParse(value);
+                  if (num == null || num < 0 || num > 14) {
+                    return 'pH must be 0-14';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: maxController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Maximum pH',
+                  prefixIcon: const Icon(Icons.science),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Required';
+                  }
+                  final num = double.tryParse(value);
+                  if (num == null || num < 0 || num > 14) {
+                    return 'pH must be 0-14';
+                  }
+                  final min = double.tryParse(minController.text);
+                  if (min != null && num <= min) {
+                    return 'Max must be > Min';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (formKey.currentState!.validate()) {
+                final min = double.parse(minController.text);
+                final max = double.parse(maxController.text);
+                await _saveThreshold(
+                  _thresholds.copyWith(
+                    phMin: min,
+                    phMax: max,
+                    lastUpdated: DateTime.now(),
+                  ),
+                );
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green[700],
+            ),
+            child: const Text('Save', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showTdsThresholdDialog() {
+    final minController =
+        TextEditingController(text: _thresholds.tdsMin.toString());
+    final maxController =
+        TextEditingController(text: _thresholds.tdsMax.toString());
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('TDS/EC Level Range'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: minController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Minimum (ppm)',
+                  prefixIcon: const Icon(Icons.opacity),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Required';
+                  }
+                  final num = double.tryParse(value);
+                  if (num == null || num < 0) {
+                    return 'Must be positive';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: maxController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Maximum (ppm)',
+                  prefixIcon: const Icon(Icons.opacity),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Required';
+                  }
+                  final num = double.tryParse(value);
+                  if (num == null || num < 0) {
+                    return 'Must be positive';
+                  }
+                  final min = double.tryParse(minController.text);
+                  if (min != null && num <= min) {
+                    return 'Max must be > Min';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (formKey.currentState!.validate()) {
+                final min = double.parse(minController.text);
+                final max = double.parse(maxController.text);
+                await _saveThreshold(
+                  _thresholds.copyWith(
+                    tdsMin: min,
+                    tdsMax: max,
+                    lastUpdated: DateTime.now(),
+                  ),
+                );
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green[700],
+            ),
+            child: const Text('Save', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLightIntensityThresholdDialog() {
+    final minController =
+        TextEditingController(text: _thresholds.lightIntensityMin.toString());
+    final maxController =
+        TextEditingController(text: _thresholds.lightIntensityMax.toString());
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Light Intensity Range'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: minController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Minimum (lux)',
+                  prefixIcon: const Icon(Icons.wb_sunny),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Required';
+                  }
+                  final num = double.tryParse(value);
+                  if (num == null || num < 0) {
+                    return 'Must be positive';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: maxController,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  labelText: 'Maximum (lux)',
+                  prefixIcon: const Icon(Icons.wb_sunny),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Required';
+                  }
+                  final num = double.tryParse(value);
+                  if (num == null || num < 0) {
+                    return 'Must be positive';
+                  }
+                  final min = double.tryParse(minController.text);
+                  if (min != null && num <= min) {
+                    return 'Max must be > Min';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (formKey.currentState!.validate()) {
+                final min = double.parse(minController.text);
+                final max = double.parse(maxController.text);
+                await _saveThreshold(
+                  _thresholds.copyWith(
+                    lightIntensityMin: min,
+                    lightIntensityMax: max,
+                    lastUpdated: DateTime.now(),
+                  ),
+                );
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green[700],
+            ),
+            child: const Text('Save', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveThreshold(SensorThresholds thresholds) async {
+    final user = FirebaseAuth.instance.currentUser;
+    
+    if (user == null) {
+      _showSnackBar('Not signed in. Please log in first.');
+      return;
+    }
+    
+    try {
+      final result = await _firestoreService.saveSensorThresholds(
+        user.uid,
+        thresholds,
+      );
+      
+      if (result['success'] == true) {
+        setState(() {
+          _thresholds = thresholds;
+        });
+        _showSnackBar(result['message']);
+      } else {
+        _showSnackBar(result['message']);
+      }
+    } catch (e) {
+      _showSnackBar('Failed to save thresholds');
+    }
   }
 }
