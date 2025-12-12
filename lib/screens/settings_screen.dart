@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import '../utils/validators.dart';
 import '../services/firestore_service.dart';
 import '../models/sensor_thresholds.dart';
+import '../models/sensor_calibration.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -20,7 +21,9 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   final FirestoreService _firestoreService = FirestoreService();
   SensorThresholds _thresholds = SensorThresholds.defaultThresholds();
+  SystemCalibration _calibration = SystemCalibration.defaultCalibration();
   bool _isLoadingThresholds = true;
+  bool _isLoadingCalibration = true;
 
   bool _notificationsEnabled = true;
   bool _autoWatering = true;
@@ -54,10 +57,12 @@ class _SettingsScreenState extends State<SettingsScreen>
     FirebaseAuth.instance.authStateChanges().listen((User? user) {
       if (user != null && mounted) {
         _loadThresholds();
+        _loadCalibration();
       }
     });
     
     _loadThresholds();
+    _loadCalibration();
   }
 
   Future<void> _loadThresholds() async {
@@ -83,6 +88,28 @@ class _SettingsScreenState extends State<SettingsScreen>
         if (mounted) {
           _showSnackBar('Please sign in to save settings');
         }
+      });
+    }
+  }
+
+  Future<void> _loadCalibration() async {
+    final user = FirebaseAuth.instance.currentUser;
+    
+    if (user != null) {
+      final calibration = await _firestoreService.getSystemCalibration(user.uid);
+      if (calibration != null) {
+        setState(() {
+          _calibration = calibration;
+          _isLoadingCalibration = false;
+        });
+      } else {
+        setState(() {
+          _isLoadingCalibration = false;
+        });
+      }
+    } else {
+      setState(() {
+        _isLoadingCalibration = false;
       });
     }
   }
@@ -345,6 +372,106 @@ class _SettingsScreenState extends State<SettingsScreen>
                                   '${_thresholds.lightIntensityMin} - ${_thresholds.lightIntensityMax} lux',
                               iconColor: Colors.orange,
                               onTap: () => _showLightIntensityThresholdDialog(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // System Calibration Section
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'System Calibration',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          if (_isLoadingCalibration)
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          else if (_calibration.hasCalibrationDue)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.red[100],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${_calibration.calibrationDueCount} due',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.red[900],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          children: [
+                            _buildCalibrationTile(
+                              icon: Icons.thermostat,
+                              title: 'Temperature Sensor',
+                              sensorType: 'temperature',
+                              calibration: _calibration.getSensor('temperature'),
+                              iconColor: Colors.red,
+                            ),
+                            Divider(height: 1, color: Colors.grey[200]),
+                            _buildCalibrationTile(
+                              icon: Icons.water_drop,
+                              title: 'Water Level Sensor',
+                              sensorType: 'waterLevel',
+                              calibration: _calibration.getSensor('waterLevel'),
+                              iconColor: Colors.blue,
+                            ),
+                            Divider(height: 1, color: Colors.grey[200]),
+                            _buildCalibrationTile(
+                              icon: Icons.science,
+                              title: 'pH Sensor',
+                              sensorType: 'ph',
+                              calibration: _calibration.getSensor('ph'),
+                              iconColor: Colors.purple,
+                            ),
+                            Divider(height: 1, color: Colors.grey[200]),
+                            _buildCalibrationTile(
+                              icon: Icons.opacity,
+                              title: 'TDS/EC Sensor',
+                              sensorType: 'tds',
+                              calibration: _calibration.getSensor('tds'),
+                              iconColor: Colors.amber,
+                            ),
+                            Divider(height: 1, color: Colors.grey[200]),
+                            _buildCalibrationTile(
+                              icon: Icons.wb_sunny,
+                              title: 'Light Sensor',
+                              sensorType: 'light',
+                              calibration: _calibration.getSensor('light'),
+                              iconColor: Colors.orange,
                             ),
                           ],
                         ),
@@ -1324,6 +1451,268 @@ class _SettingsScreenState extends State<SettingsScreen>
       }
     } catch (e) {
       _showSnackBar('Failed to save thresholds');
+    }
+  }
+
+  // ============ CALIBRATION METHODS ============
+
+  Widget _buildCalibrationTile({
+    required IconData icon,
+    required String title,
+    required String sensorType,
+    required SensorCalibration? calibration,
+    required Color iconColor,
+  }) {
+    if (calibration == null) return const SizedBox.shrink();
+
+    final lastCalibrated = calibration.lastCalibrated;
+    final String subtitle = lastCalibrated != null
+        ? 'Last: ${DateFormat('MMM d, yyyy').format(lastCalibrated)}'
+        : 'Never calibrated';
+
+    final Color statusColor = calibration.isCalibrationDue
+        ? Colors.red
+        : calibration.isCalibrationApproaching
+            ? Colors.orange
+            : Colors.green;
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: iconColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: iconColor, size: 24),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                calibration.calibrationStatus,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: statusColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      trailing: IconButton(
+        icon: Icon(Icons.tune, color: Colors.green[700]),
+        onPressed: () => _showSensorCalibrationDialog(sensorType, calibration),
+      ),
+    );
+  }
+
+  void _showSensorCalibrationDialog(
+    String sensorType,
+    SensorCalibration calibration,
+  ) {
+    final offsetController =
+        TextEditingController(text: calibration.offset.toString());
+    final intervalController = TextEditingController(
+      text: calibration.calibrationIntervalDays.toString(),
+    );
+    final formKey = GlobalKey<FormState>();
+
+    // Sensor display names and units
+    final sensorNames = {
+      'temperature': {'name': 'Temperature', 'unit': '°C'},
+      'waterLevel': {'name': 'Water Level', 'unit': '%'},
+      'ph': {'name': 'pH', 'unit': ''},
+      'tds': {'name': 'TDS/EC', 'unit': 'ppm'},
+      'light': {'name': 'Light', 'unit': 'lux'},
+    };
+
+    final sensorInfo = sensorNames[sensorType]!;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.tune, color: Colors.green[700]),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('Calibrate ${sensorInfo['name']} Sensor'),
+            ),
+          ],
+        ),
+        content: Form(
+          key: formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextFormField(
+                  controller: offsetController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Calibration Offset',
+                    hintText: 'Enter offset value',
+                    suffixText: sensorInfo['unit'],
+                    prefixIcon: const Icon(Icons.tune),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    helperText: 'Positive or negative adjustment value',
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Required';
+                    }
+                    if (double.tryParse(value) == null) {
+                      return 'Invalid number';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: intervalController,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: 'Calibration Interval',
+                    hintText: 'Days between calibrations',
+                    suffixText: 'days',
+                    prefixIcon: const Icon(Icons.event),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    helperText: 'How often to calibrate this sensor',
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Required';
+                    }
+                    final num = int.tryParse(value);
+                    if (num == null || num < 1) {
+                      return 'Must be at least 1 day';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.blue[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.info_outline,
+                          size: 16, color: Colors.blue[700]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Changes will be saved to your profile',
+                          style:
+                              TextStyle(fontSize: 11, color: Colors.blue[900]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (formKey.currentState!.validate()) {
+                final offset = double.parse(offsetController.text);
+                final interval = int.parse(intervalController.text);
+                final now = DateTime.now();
+
+                final updatedCalibration = calibration.copyWith(
+                  offset: offset,
+                  calibrationIntervalDays: interval,
+                  lastCalibrated: now,
+                  nextCalibrationDue: now.add(Duration(days: interval)),
+                );
+
+                await _saveCalibration(sensorType, updatedCalibration);
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green[700],
+            ),
+            child: const Text('Save', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveCalibration(
+    String sensorType,
+    SensorCalibration calibration,
+  ) async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      _showSnackBar('Not signed in. Please log in first.');
+      return;
+    }
+
+    try {
+      final updatedSystem = _calibration.updateSensor(sensorType, calibration);
+      final result =
+          await _firestoreService.saveSystemCalibration(user.uid, updatedSystem);
+
+      if (result['success'] == true) {
+        setState(() {
+          _calibration = updatedSystem;
+        });
+        _showSnackBar(result['message']);
+      } else {
+        _showSnackBar(result['message']);
+      }
+    } catch (e) {
+      _showSnackBar('Failed to save calibration');
     }
   }
 }

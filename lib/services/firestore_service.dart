@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/sensor_data.dart';
 import '../models/actuator_data.dart';
 import '../models/sensor_thresholds.dart';
+import '../models/sensor_calibration.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -153,6 +154,88 @@ class FirestoreService {
         return SensorThresholds.fromJson(snapshot.data()!);
       }
       return SensorThresholds.defaultThresholds();
+    });
+  }
+
+  // ============ SENSOR CALIBRATION METHODS ============
+
+  // Get system calibration data for a specific user
+  Future<SystemCalibration?> getSystemCalibration(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('settings')
+          .doc('calibration')
+          .get();
+      
+      if (snapshot.exists && snapshot.data() != null) {
+        return SystemCalibration.fromJson(snapshot.data()!);
+      }
+      // Return default calibration if none exist
+      return SystemCalibration.defaultCalibration();
+    } catch (e) {
+      return SystemCalibration.defaultCalibration();
+    }
+  }
+
+  // Save system calibration data for a specific user
+  Future<Map<String, dynamic>> saveSystemCalibration(
+      String userId, SystemCalibration calibration) async {
+    try {
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('settings')
+          .doc('calibration')
+          .set(calibration.toJson());
+      
+      return {
+        'success': true,
+        'message': 'Calibration saved successfully'
+      };
+    } on FirebaseException catch (e) {
+      String errorMessage = 'Firebase error: ';
+      switch (e.code) {
+        case 'permission-denied':
+          errorMessage += 'Permission denied. Check Firestore rules.';
+          break;
+        case 'unavailable':
+          errorMessage += 'Network unavailable. Check internet connection.';
+          break;
+        case 'unauthenticated':
+          errorMessage += 'User not authenticated. Please sign in again.';
+          break;
+        default:
+          errorMessage += '${e.message}';
+      }
+      return {
+        'success': false,
+        'message': errorMessage,
+        'error': e.toString()
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Unexpected error: ${e.toString()}',
+        'error': e.toString()
+      };
+    }
+  }
+
+  // Listen to system calibration changes (real-time stream)
+  Stream<SystemCalibration?> getSystemCalibrationStream(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('settings')
+        .doc('calibration')
+        .snapshots()
+        .map((snapshot) {
+      if (snapshot.exists && snapshot.data() != null) {
+        return SystemCalibration.fromJson(snapshot.data()!);
+      }
+      return SystemCalibration.defaultCalibration();
     });
   }
 }
