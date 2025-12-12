@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:intl/intl.dart';
 import '../utils/validators.dart';
 import '../services/firestore_service.dart';
 import '../models/sensor_thresholds.dart';
 import '../models/sensor_calibration.dart';
+import '../models/user.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -22,8 +23,10 @@ class _SettingsScreenState extends State<SettingsScreen>
   final FirestoreService _firestoreService = FirestoreService();
   SensorThresholds _thresholds = SensorThresholds.defaultThresholds();
   SystemCalibration _calibration = SystemCalibration.defaultCalibration();
+  UserProfile? _userProfile;
   bool _isLoadingThresholds = true;
   bool _isLoadingCalibration = true;
+  bool _isLoadingProfile = true;
 
   bool _notificationsEnabled = true;
   bool _autoWatering = true;
@@ -54,19 +57,21 @@ class _SettingsScreenState extends State<SettingsScreen>
     _animationController.forward();
     
     // Monitor auth state
-    FirebaseAuth.instance.authStateChanges().listen((User? user) {
+    firebase_auth.FirebaseAuth.instance.authStateChanges().listen((firebase_auth.User? user) {
       if (user != null && mounted) {
         _loadThresholds();
         _loadCalibration();
+        _loadUserProfile();
       }
     });
     
     _loadThresholds();
     _loadCalibration();
+    _loadUserProfile();
   }
 
   Future<void> _loadThresholds() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
     
     if (user != null) {
       final thresholds = await _firestoreService.getSensorThresholds(user.uid);
@@ -93,7 +98,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Future<void> _loadCalibration() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
     
     if (user != null) {
       final calibration = await _firestoreService.getSystemCalibration(user.uid);
@@ -110,6 +115,30 @@ class _SettingsScreenState extends State<SettingsScreen>
     } else {
       setState(() {
         _isLoadingCalibration = false;
+      });
+    }
+  }
+
+  Future<void> _loadUserProfile() async {
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
+    
+    if (user != null) {
+      // Try to load from Firestore first
+      var profile = await _firestoreService.getUserProfile(user.uid);
+      
+      // If no profile exists in Firestore, create one from Firebase Auth
+      if (profile == null) {
+        profile = UserProfile.fromFirebaseUser(user);
+        await _firestoreService.createUserProfile(profile);
+      }
+      
+      setState(() {
+        _userProfile = profile;
+        _isLoadingProfile = false;
+      });
+    } else {
+      setState(() {
+        _isLoadingProfile = false;
       });
     }
   }
@@ -180,22 +209,34 @@ class _SettingsScreenState extends State<SettingsScreen>
                           ),
                         ),
                         const SizedBox(height: 16),
-                        const Text(
-                          'User Name',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                          ),
-                        ),
+                        _isLoadingProfile
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
+                                ),
+                              )
+                            : Text(
+                                _userProfile?.displayName ?? 'User',
+                                style: const TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
                         const SizedBox(height: 4),
-                        Text(
-                          'user.name@example.com',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.white.withOpacity(0.9),
-                          ),
-                        ),
+                        _isLoadingProfile
+                            ? const SizedBox.shrink()
+                            : Text(
+                                _userProfile?.email ?? 'user@example.com',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.white.withOpacity(0.9),
+                                ),
+                              ),
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: () {
@@ -800,9 +841,15 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   void _showEditProfileDialog() {
+    if (_userProfile == null) {
+      _showSnackBar('Profile not loaded yet');
+      return;
+    }
+
     final formKey = GlobalKey<FormState>();
-    final nameController = TextEditingController(text: 'John Doe');
-    final emailController = TextEditingController(text: 'john.doe@example.com');
+    final nameController = TextEditingController(
+      text: _userProfile!.displayName,
+    );
 
     showDialog(
       context: context,
@@ -810,53 +857,92 @@ class _SettingsScreenState extends State<SettingsScreen>
         title: const Text('Edit Profile'),
         content: Form(
           key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: nameController,
-                validator: Validators.name,
-                textCapitalization: TextCapitalization.words,
-                decoration: InputDecoration(
-                  labelText: 'Name',
-                  prefixIcon: const Icon(Icons.person_outline),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nameController,
+                  validator: Validators.name,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    labelText: 'Display Name',
+                    prefixIcon: const Icon(Icons.person_outline),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: emailController,
-                validator: Validators.email,
-                keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  prefixIcon: const Icon(Icons.email_outlined),
-                  border: OutlineInputBorder(
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
                     borderRadius: BorderRadius.circular(8),
                   ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.email, color: Colors.grey[600], size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Email',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                            Text(
+                              _userProfile!.email,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  'Note: Email cannot be changed here',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () {
-              nameController.dispose();
-              emailController.dispose();
               Navigator.pop(context);
             },
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               if (formKey.currentState!.validate()) {
-                nameController.dispose();
-                emailController.dispose();
+                // Get values before closing dialog
+                final newDisplayName = nameController.text.trim();
+                
+                // Close dialog first
                 Navigator.pop(context);
-                _showSnackBar('Profile updated successfully');
+                
+                // Now create and save profile
+                final updatedProfile = _userProfile!.copyWith(
+                  displayName: newDisplayName,
+                  lastUpdated: DateTime.now(),
+                );
+
+                await _saveUserProfile(updatedProfile);
               }
             },
             style: ElevatedButton.styleFrom(
@@ -867,6 +953,30 @@ class _SettingsScreenState extends State<SettingsScreen>
         ],
       ),
     );
+  }
+
+  Future<void> _saveUserProfile(UserProfile profile) async {
+    try {
+      final result = await _firestoreService.saveUserProfile(profile);
+
+      if (result['success'] == true) {
+        setState(() {
+          _userProfile = profile;
+        });
+        
+        // Also update Firebase Auth display name
+        final user = firebase_auth.FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          await user.updateDisplayName(profile.displayName);
+        }
+        
+        _showSnackBar(result['message']);
+      } else {
+        _showSnackBar(result['message']);
+      }
+    } catch (e) {
+      _showSnackBar('Failed to update profile');
+    }
   }
 
   void _showAboutDialog() {
@@ -1428,7 +1538,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Future<void> _saveThreshold(SensorThresholds thresholds) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
     
     if (user == null) {
       _showSnackBar('Not signed in. Please log in first.');
@@ -1691,7 +1801,7 @@ class _SettingsScreenState extends State<SettingsScreen>
     String sensorType,
     SensorCalibration calibration,
   ) async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
 
     if (user == null) {
       _showSnackBar('Not signed in. Please log in first.');

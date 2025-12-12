@@ -3,6 +3,7 @@ import '../models/sensor_data.dart';
 import '../models/actuator_data.dart';
 import '../models/sensor_thresholds.dart';
 import '../models/sensor_calibration.dart';
+import '../models/user.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -237,5 +238,111 @@ class FirestoreService {
       }
       return SystemCalibration.defaultCalibration();
     });
+  }
+
+  // ============ USER PROFILE METHODS ============
+
+  // Get user profile
+  Future<UserProfile?> getUserProfile(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(userId)
+          .get();
+      
+      if (snapshot.exists && snapshot.data() != null) {
+        return UserProfile.fromJson(snapshot.data()!);
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Save or update user profile
+  Future<Map<String, dynamic>> saveUserProfile(UserProfile profile) async {
+    try {
+      await _firestore
+          .collection('users')
+          .doc(profile.uid)
+          .set(profile.toJson(), SetOptions(merge: true));
+      
+      return {
+        'success': true,
+        'message': 'Profile updated successfully'
+      };
+    } on FirebaseException catch (e) {
+      String errorMessage = 'Firebase error: ';
+      switch (e.code) {
+        case 'permission-denied':
+          errorMessage += 'Permission denied. Check Firestore rules.';
+          break;
+        case 'unavailable':
+          errorMessage += 'Network unavailable. Check internet connection.';
+          break;
+        case 'unauthenticated':
+          errorMessage += 'User not authenticated. Please sign in again.';
+          break;
+        default:
+          errorMessage += '${e.message}';
+      }
+      return {
+        'success': false,
+        'message': errorMessage,
+        'error': e.toString()
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Unexpected error: ${e.toString()}',
+        'error': e.toString()
+      };
+    }
+  }
+
+  // Listen to user profile changes (real-time stream)
+  Stream<UserProfile?> getUserProfileStream(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .snapshots()
+        .map((snapshot) {
+      if (snapshot.exists && snapshot.data() != null) {
+        return UserProfile.fromJson(snapshot.data()!);
+      }
+      return null;
+    });
+  }
+
+  // Create user profile on first login
+  Future<Map<String, dynamic>> createUserProfile(UserProfile profile) async {
+    try {
+      // Check if profile already exists
+      final existingProfile = await getUserProfile(profile.uid);
+      
+      if (existingProfile != null) {
+        return {
+          'success': true,
+          'message': 'Profile already exists'
+        };
+      }
+
+      // Create new profile
+      await _firestore
+          .collection('users')
+          .doc(profile.uid)
+          .set(profile.toJson());
+      
+      return {
+        'success': true,
+        'message': 'Profile created successfully'
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Failed to create profile: ${e.toString()}',
+        'error': e.toString()
+      };
+    }
   }
 }
