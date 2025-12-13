@@ -136,6 +136,11 @@ class _SettingsScreenState extends State<SettingsScreen>
       setState(() {
         _userProfile = profile;
         _isLoadingProfile = false;
+        // Load settings from profile
+        _notificationsEnabled = profile!.notificationsEnabled;
+        _autoWatering = profile.autoWatering;
+        _temperatureUnit = profile.temperatureUnit;
+        _language = profile.language;
       });
     } else {
       setState(() {
@@ -284,8 +289,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                               title: 'Push Notifications',
                               subtitle: 'Receive alerts and updates',
                               value: _notificationsEnabled,
-                              onChanged: (val) =>
-                                  setState(() => _notificationsEnabled = val),
+                              onChanged: (val) {
+                                setState(() => _notificationsEnabled = val);
+                                _saveNotificationsSetting(val);
+                              },
                               iconColor: Colors.orange,
                             ),
                             Divider(height: 1, color: Theme.of(context).dividerColor),
@@ -294,8 +301,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                               title: 'Auto Watering',
                               subtitle: 'Automatically water plants',
                               value: _autoWatering,
-                              onChanged: (val) =>
-                                  setState(() => _autoWatering = val),
+                              onChanged: (val) {
+                                setState(() => _autoWatering = val);
+                                _saveAutoWateringSetting(val);
+                              },
                               iconColor: Colors.blue,
                             ),
                             Divider(height: 1, color: Theme.of(context).dividerColor),
@@ -774,6 +783,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               activeColor: Colors.green[700],
               onChanged: (value) {
                 setState(() => _temperatureUnit = value!);
+                _saveTemperatureUnit(value!);
                 Navigator.pop(context);
               },
             ),
@@ -784,6 +794,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               activeColor: Colors.green[700],
               onChanged: (value) {
                 setState(() => _temperatureUnit = value!);
+                _saveTemperatureUnit(value!);
                 Navigator.pop(context);
               },
             ),
@@ -808,6 +819,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               activeColor: Colors.green[700],
               onChanged: (value) {
                 setState(() => _language = value!);
+                _saveLanguage(value!);
                 Navigator.pop(context);
               },
             ),
@@ -818,6 +830,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               activeColor: Colors.green[700],
               onChanged: (value) {
                 setState(() => _language = value!);
+                _saveLanguage(value!);
                 Navigator.pop(context);
               },
             ),
@@ -828,6 +841,7 @@ class _SettingsScreenState extends State<SettingsScreen>
               activeColor: Colors.green[700],
               onChanged: (value) {
                 setState(() => _language = value!);
+                _saveLanguage(value!);
                 Navigator.pop(context);
               },
             ),
@@ -1269,6 +1283,88 @@ class _SettingsScreenState extends State<SettingsScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
+  }
+
+  // ============ SETTINGS PERSISTENCE ============
+  
+  Future<void> _saveNotificationsSetting(bool value) async {
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (user == null || _userProfile == null) return;
+
+    try {
+      final updatedProfile = _userProfile!.copyWith(
+        notificationsEnabled: value,
+        lastUpdated: DateTime.now(),
+      );
+      
+      await _firestoreService.saveUserProfile(updatedProfile);
+      
+      setState(() {
+        _userProfile = updatedProfile;
+      });
+    } catch (e) {
+      _showSnackBar('Failed to save notification setting');
+    }
+  }
+
+  Future<void> _saveAutoWateringSetting(bool value) async {
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (user == null || _userProfile == null) return;
+
+    try {
+      final updatedProfile = _userProfile!.copyWith(
+        autoWatering: value,
+        lastUpdated: DateTime.now(),
+      );
+      
+      await _firestoreService.saveUserProfile(updatedProfile);
+      
+      setState(() {
+        _userProfile = updatedProfile;
+      });
+    } catch (e) {
+      _showSnackBar('Failed to save auto watering setting');
+    }
+  }
+
+  Future<void> _saveTemperatureUnit(String value) async {
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (user == null || _userProfile == null) return;
+
+    try {
+      final updatedProfile = _userProfile!.copyWith(
+        temperatureUnit: value,
+        lastUpdated: DateTime.now(),
+      );
+      
+      await _firestoreService.saveUserProfile(updatedProfile);
+      
+      setState(() {
+        _userProfile = updatedProfile;
+      });
+    } catch (e) {
+      _showSnackBar('Failed to save temperature unit');
+    }
+  }
+
+  Future<void> _saveLanguage(String value) async {
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (user == null || _userProfile == null) return;
+
+    try {
+      final updatedProfile = _userProfile!.copyWith(
+        language: value,
+        lastUpdated: DateTime.now(),
+      );
+      
+      await _firestoreService.saveUserProfile(updatedProfile);
+      
+      setState(() {
+        _userProfile = updatedProfile;
+      });
+    } catch (e) {
+      _showSnackBar('Failed to save language setting');
+    }
   }
 
   // ============ THRESHOLD DIALOGS ============

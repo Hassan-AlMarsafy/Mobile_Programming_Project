@@ -43,6 +43,10 @@ class UserProfile {
   final String? photoURL;
   final DateTime? createdAt;
   final DateTime? lastUpdated;
+  final bool notificationsEnabled;
+  final bool autoWatering;
+  final String temperatureUnit;
+  final String language;
 
   UserProfile({
     required this.uid,
@@ -52,6 +56,10 @@ class UserProfile {
     this.photoURL,
     this.createdAt,
     this.lastUpdated,
+    this.notificationsEnabled = true,
+    this.autoWatering = true,
+    this.temperatureUnit = 'Celsius',
+    this.language = 'English',
   });
 
   // From JSON (Firebase)
@@ -68,6 +76,10 @@ class UserProfile {
       lastUpdated: json['lastUpdated'] != null
           ? DateTime.parse(json['lastUpdated'])
           : null,
+      notificationsEnabled: json['notificationsEnabled'] ?? true,
+      autoWatering: json['autoWatering'] ?? true,
+      temperatureUnit: json['temperatureUnit'] ?? 'Celsius',
+      language: json['language'] ?? 'English',
     );
   }
 
@@ -81,6 +93,10 @@ class UserProfile {
       'photoURL': photoURL,
       'createdAt': createdAt?.toIso8601String(),
       'lastUpdated': lastUpdated?.toIso8601String(),
+      'notificationsEnabled': notificationsEnabled,
+      'autoWatering': autoWatering,
+      'temperatureUnit': temperatureUnit,
+      'language': language,
     };
   }
 
@@ -106,6 +122,10 @@ class UserProfile {
     String? photoURL,
     DateTime? createdAt,
     DateTime? lastUpdated,
+    bool? notificationsEnabled,
+    bool? autoWatering,
+    String? temperatureUnit,
+    String? language,
   }) {
     return UserProfile(
       uid: uid ?? this.uid,
@@ -115,6 +135,10 @@ class UserProfile {
       photoURL: photoURL ?? this.photoURL,
       createdAt: createdAt ?? this.createdAt,
       lastUpdated: lastUpdated ?? this.lastUpdated,
+      notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
+      autoWatering: autoWatering ?? this.autoWatering,
+      temperatureUnit: temperatureUnit ?? this.temperatureUnit,
+      language: language ?? this.language,
     );
   }
 }
