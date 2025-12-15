@@ -76,6 +76,55 @@ class FirestoreService {
     }
   }
 
+  // ============ SYSTEM MODE METHODS ============
+
+  // Listen to system mode changes (real-time stream)
+  Stream<bool> getSystemModeStream() {
+    return _firestore
+        .collection('system')
+        .doc('settings')
+        .snapshots()
+        .map((snapshot) {
+      if (snapshot.exists && snapshot.data() != null) {
+        return snapshot.data()!['isAutomaticMode'] as bool? ?? false;
+      }
+      return false;
+    });
+  }
+
+  // Get current system mode (one-time fetch)
+  Future<bool> getSystemMode() async {
+    try {
+      final snapshot = await _firestore
+          .collection('system')
+          .doc('settings')
+          .get();
+      if (snapshot.exists && snapshot.data() != null) {
+        return snapshot.data()!['isAutomaticMode'] as bool? ?? false;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Set system mode
+  Future<void> setSystemMode(bool isAutomaticMode) async {
+    try {
+      print('Setting system mode to: $isAutomaticMode');
+      await _firestore
+          .collection('system')
+          .doc('settings')
+          .set({
+        'isAutomaticMode': isAutomaticMode,
+        'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+      }, SetOptions(merge: true));
+      print('System mode successfully updated in Firebase');
+    } catch (e) {
+      print('Error setting system mode: $e');
+    }
+  }
+
   // ============ SENSOR THRESHOLDS METHODS ============
 
   // Get sensor thresholds for a specific user
