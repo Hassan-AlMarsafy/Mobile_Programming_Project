@@ -229,6 +229,28 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                   const SizedBox(height: 24),
 
+                  // Critical Controls and Mode
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Quick Controls',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildCriticalControlsCard(),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
                   // Quick Actions Section
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -704,5 +726,218 @@ class _DashboardScreenState extends State<DashboardScreen>
       return SensorStatus.warning;
     }
     return SensorStatus.normal;
+  }
+
+  Widget _buildCriticalControlsCard() {
+    return Consumer<SensorViewModel>(
+      builder: (context, viewModel, child) {
+        final actuatorData = viewModel.actuatorData;
+
+        return Card(
+          elevation: 3,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                // Mode Selector
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        viewModel.isAutomaticMode ? Icons.auto_mode : Icons.touch_app,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Current Mode',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).textTheme.bodySmall?.color,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              viewModel.isAutomaticMode ? 'Automatic' : 'Manual',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).textTheme.bodyLarge?.color,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: viewModel.isAutomaticMode,
+                        onChanged: (value) async {
+                          await viewModel.setSystemMode(value);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Switched to ${value ? 'Automatic' : 'Manual'} mode',
+                                ),
+                                duration: const Duration(seconds: 2),
+                                backgroundColor: Colors.green[700],
+                              ),
+                            );
+                          }
+                        },
+                        activeColor: Colors.green[600],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Emergency Stop Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      _showEmergencyStopDialog(viewModel, actuatorData);
+                    },
+                    icon: const Icon(Icons.power_settings_new, size: 24),
+                    label: const Text(
+                      'EMERGENCY STOP',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red[700],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // All On/Off Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: actuatorData != null
+                            ? () => _toggleAllActuators(viewModel, actuatorData, true)
+                            : null,
+                        icon: const Icon(Icons.power, size: 20),
+                        label: const Text('All ON'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.green[700],
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: BorderSide(color: Colors.green[700]!, width: 2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: actuatorData != null
+                            ? () => _toggleAllActuators(viewModel, actuatorData, false)
+                            : null,
+                        icon: const Icon(Icons.power_off, size: 20),
+                        label: const Text('All OFF'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.grey[700],
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: BorderSide(color: Colors.grey[400]!, width: 2),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showEmergencyStopDialog(SensorViewModel viewModel, dynamic actuatorData) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning, color: Colors.red[700], size: 32),
+            const SizedBox(width: 12),
+            const Text('Emergency Stop'),
+          ],
+        ),
+        content: const Text(
+          'This will immediately turn off all actuators. Are you sure?',
+          style: TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              if (actuatorData != null) {
+                _toggleAllActuators(viewModel, actuatorData, false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('EMERGENCY STOP - All systems halted!'),
+                    backgroundColor: Colors.red[700],
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red[700],
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('STOP ALL'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toggleAllActuators(SensorViewModel viewModel, dynamic actuatorData, bool turnOn) async {
+    final updatedData = ActuatorData(
+      waterPump: turnOn,
+      nutrientPump: turnOn,
+      lights: turnOn,
+      fan: turnOn,
+      timestamp: DateTime.now(),
+    );
+
+    await viewModel.sendActuatorCommand(updatedData);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('All actuators turned ${turnOn ? 'ON' : 'OFF'}'),
+          backgroundColor: turnOn ? Colors.green[700] : Colors.grey[700],
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 }
