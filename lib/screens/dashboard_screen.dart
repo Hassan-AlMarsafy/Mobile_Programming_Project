@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../viewmodels/sensor_viewmodel.dart';
 import '../widgets/sensor_tile.dart';
 import '../widgets/main_layout.dart';
+import '../models/actuator_data.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -441,21 +442,25 @@ class _DashboardScreenState extends State<DashboardScreen>
                       icon: Icons.water_drop,
                       label: 'Water',
                       isActive: actuatorData.waterPump,
+                      onTap: () => _toggleActuator(viewModel, actuatorData, 'waterPump'),
                     ),
                     _buildActuatorIndicator(
                       icon: Icons.science,
                       label: 'Nutrients',
                       isActive: actuatorData.nutrientPump,
+                      onTap: () => _toggleActuator(viewModel, actuatorData, 'nutrientPump'),
                     ),
                     _buildActuatorIndicator(
                       icon: Icons.lightbulb,
                       label: 'Lights',
                       isActive: actuatorData.lights,
+                      onTap: () => _toggleActuator(viewModel, actuatorData, 'lights'),
                     ),
                     _buildActuatorIndicator(
                       icon: Icons.air,
                       label: 'Fan',
                       isActive: actuatorData.fan,
+                      onTap: () => _toggleActuator(viewModel, actuatorData, 'fan'),
                     ),
                   ],
                 ),
@@ -471,40 +476,60 @@ class _DashboardScreenState extends State<DashboardScreen>
     required IconData icon,
     required String label,
     required bool isActive,
+    required VoidCallback onTap,
   }) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: isActive 
-                ? Colors.white.withOpacity(0.3)
-                : Colors.white.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
               color: isActive 
-                  ? Colors.white.withOpacity(0.5)
-                  : Colors.white.withOpacity(0.2),
-              width: 2,
+                  ? Colors.white.withOpacity(0.3)
+                  : Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isActive 
+                    ? Colors.white.withOpacity(0.5)
+                    : Colors.white.withOpacity(0.2),
+                width: 2,
+              ),
+            ),
+            child: Icon(
+              icon,
+              color: Colors.white,
+              size: 20,
             ),
           ),
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: 20,
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.white.withOpacity(0.9),
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            color: Colors.white.withOpacity(0.9),
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
+        ],
+      ),
     );
+  }
+
+  void _toggleActuator(SensorViewModel viewModel, dynamic actuatorData, String actuatorName) async {
+    if (actuatorData == null) return;
+
+    // Create updated actuator data with toggled value
+    final updatedData = ActuatorData(
+      waterPump: actuatorName == 'waterPump' ? !actuatorData.waterPump : actuatorData.waterPump,
+      nutrientPump: actuatorName == 'nutrientPump' ? !actuatorData.nutrientPump : actuatorData.nutrientPump,
+      lights: actuatorName == 'lights' ? !actuatorData.lights : actuatorData.lights,
+      fan: actuatorName == 'fan' ? !actuatorData.fan : actuatorData.fan,
+      timestamp: DateTime.now(),
+    );
+
+    // Send command to Firebase
+    await viewModel.sendActuatorCommand(updatedData);
   }
 
   Widget _buildStatusMetric({
