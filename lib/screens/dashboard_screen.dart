@@ -267,62 +267,296 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildSystemStatusCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+    return Consumer<SensorViewModel>(
+      builder: (context, viewModel, child) {
+        final sensorData = viewModel.sensorData;
+        final actuatorData = viewModel.actuatorData;
+        final loading = viewModel.loading;
+
+        // Calculate system health based on sensor readings
+        int criticalIssues = 0;
+        int warnings = 0;
+        int normalSensors = 0;
+        const int totalSensors = 5;
+        
+        if (sensorData != null) {
+          final tempStatus = _getSensorStatus(sensorData.temperature, 20, 30);
+          final phStatus = _getSensorStatus(sensorData.pH, 5.5, 7.5);
+          final tdsStatus = _getSensorStatus(sensorData.tds, 500, 1500);
+          final waterStatus = _getSensorStatus(sensorData.waterLevel, 30, 100);
+          final lightStatus = _getSensorStatus(sensorData.lightIntensity, 0, 1000);
+          
+          // Count issues
+          if (tempStatus == SensorStatus.critical) criticalIssues++;
+          else if (tempStatus == SensorStatus.warning) warnings++;
+          else normalSensors++;
+          
+          if (phStatus == SensorStatus.critical) criticalIssues++;
+          else if (phStatus == SensorStatus.warning) warnings++;
+          else normalSensors++;
+          
+          if (tdsStatus == SensorStatus.critical) criticalIssues++;
+          else if (tdsStatus == SensorStatus.warning) warnings++;
+          else normalSensors++;
+          
+          if (waterStatus == SensorStatus.critical) criticalIssues++;
+          else if (waterStatus == SensorStatus.warning) warnings++;
+          else normalSensors++;
+          
+          if (lightStatus == SensorStatus.critical) criticalIssues++;
+          else if (lightStatus == SensorStatus.warning) warnings++;
+          else normalSensors++;
+        }
+
+        // Calculate health percentage
+        int healthPercentage = sensorData != null 
+            ? ((normalSensors / totalSensors) * 100).round() 
+            : 0;
+        
+        // Sensors connected count
+        int connectedSensors = sensorData != null ? totalSensors : 0;
+
+        // Determine overall status
+        Color statusColor;
+        IconData statusIcon;
+        String statusText;
+        String statusSubtext;
+
+        if (loading) {
+          statusColor = Colors.grey;
+          statusIcon = Icons.sync;
+          statusText = 'Connecting...';
+          statusSubtext = 'Please wait';
+        } else if (criticalIssues > 0) {
+          statusColor = Colors.red[700]!;
+          statusIcon = Icons.error;
+          statusText = 'Critical Issues';
+          statusSubtext = '$criticalIssues sensor(s) need immediate attention';
+        } else if (warnings > 0) {
+          statusColor = Colors.orange[700]!;
+          statusIcon = Icons.warning_amber_rounded;
+          statusText = 'Warning';
+          statusSubtext = '$warnings sensor(s) out of optimal range';
+        } else {
+          statusColor = Colors.green[600]!;
+          statusIcon = Icons.check_circle;
+          statusText = 'All Systems Operational';
+          statusSubtext = 'Everything running smoothly';
+        }
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: statusColor,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: statusColor.withOpacity(0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.check_circle,
-              color: Colors.white,
-              size: 32,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'All Systems Operational',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      statusIcon,
+                      color: Colors.white,
+                      size: 32,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Last updated: ${TimeOfDay.now().format(context)}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.white.withOpacity(0.9),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          statusText,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          statusSubtext,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withOpacity(0.9),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatusMetric(
+                      icon: Icons.sensors,
+                      label: 'Sensors',
+                      value: '$connectedSensors/$totalSensors',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildStatusMetric(
+                      icon: Icons.schedule,
+                      label: 'Updated',
+                      value: sensorData != null 
+                          ? _formatTime(sensorData.timestamp)
+                          : 'N/A',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildStatusMetric(
+                      icon: Icons.health_and_safety,
+                      label: 'Health',
+                      value: '$healthPercentage%',
+                    ),
+                  ),
+                ],
+              ),
+              if (actuatorData != null) ...[
+                const SizedBox(height: 16),
+                const Divider(color: Colors.white30, height: 1),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildActuatorIndicator(
+                      icon: Icons.water_drop,
+                      label: 'Water',
+                      isActive: actuatorData.waterPump,
+                    ),
+                    _buildActuatorIndicator(
+                      icon: Icons.science,
+                      label: 'Nutrients',
+                      isActive: actuatorData.nutrientPump,
+                    ),
+                    _buildActuatorIndicator(
+                      icon: Icons.lightbulb,
+                      label: 'Lights',
+                      isActive: actuatorData.lights,
+                    ),
+                    _buildActuatorIndicator(
+                      icon: Icons.air,
+                      label: 'Fan',
+                      isActive: actuatorData.fan,
+                    ),
+                  ],
                 ),
               ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildActuatorIndicator({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+  }) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: isActive 
+                ? Colors.white.withOpacity(0.3)
+                : Colors.white.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isActive 
+                  ? Colors.white.withOpacity(0.5)
+                  : Colors.white.withOpacity(0.2),
+              width: 2,
             ),
           ),
-          Icon(Icons.chevron_right, color: Colors.white.withOpacity(0.8)),
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 20,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: Colors.white.withOpacity(0.9),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatusMetric({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: Colors.white, size: 18),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              color: Colors.white.withOpacity(0.8),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  String _formatTime(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp); 
+
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} min ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else {
+      return '${difference.inDays}d ago';
+    }
   }
 
   Widget _buildQuickActionCard({

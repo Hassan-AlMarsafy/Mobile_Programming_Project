@@ -29,9 +29,9 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     ),
-    cardTheme: CardTheme(
+    cardTheme: const CardThemeData(
       color: Colors.white,
-      shape: const RoundedRectangleBorder(
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(12)),
       ),
       elevation: 2,
@@ -63,7 +63,7 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     ),
-    cardTheme: const CardTheme(
+    cardTheme: const CardThemeData(
       color: Color(0xFF1E1E1E),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.all(Radius.circular(12)),
@@ -71,7 +71,7 @@ class AppTheme {
       elevation: 2,
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: Color(0xFF1E1E1E),
+      backgroundColor: Color.fromARGB(255, 21, 219, 97),
       selectedItemColor: darkPrimaryColor,
       unselectedItemColor: Colors.grey,
     ),
