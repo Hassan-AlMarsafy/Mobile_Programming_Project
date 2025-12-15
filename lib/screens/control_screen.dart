@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../widgets/main_layout.dart';
+import '../viewmodels/sensor_viewmodel.dart';
+import '../models/actuator_data.dart';
 
 class ControlScreen extends StatefulWidget {
   const ControlScreen({super.key});
@@ -11,11 +14,6 @@ class ControlScreen extends StatefulWidget {
 class _ControlScreenState extends State<ControlScreen> with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
-
-  // State for switches
-  bool _waterPumpState = true;
-  bool _nutrientPumpState = false;
-  bool _lightsState = true;
 
   @override
   void initState() {
@@ -127,39 +125,64 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
 
   // New Widget: Manual Control Card
   Widget _buildManualControlCard() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            _buildControlSwitch(
-              'Water Pump',
-              _waterPumpState,
-                  (value) => setState(() => _waterPumpState = value),
-              Icons.water_damage_outlined,
-              Colors.blue,
+    return Consumer<SensorViewModel>(
+      builder: (context, viewModel, child) {
+        final actuatorData = viewModel.actuatorData;
+
+        if (actuatorData == null) {
+          return Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: const Padding(
+              padding: EdgeInsets.all(40),
+              child: Center(child: CircularProgressIndicator()),
             ),
-            const Divider(height: 24),
-            _buildControlSwitch(
-              'Nutrient Pump',
-              _nutrientPumpState,
-                  (value) => setState(() => _nutrientPumpState = value),
-              Icons.opacity,
-              Colors.purple,
+          );
+        }
+
+        return Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                _buildControlSwitch(
+                  'Water Pump',
+                  actuatorData.waterPump,
+                  (value) => _toggleActuator(viewModel, actuatorData, 'waterPump', value),
+                  Icons.water_damage_outlined,
+                  Colors.blue,
+                ),
+                const Divider(height: 24),
+                _buildControlSwitch(
+                  'Nutrient Pump',
+                  actuatorData.nutrientPump,
+                  (value) => _toggleActuator(viewModel, actuatorData, 'nutrientPump', value),
+                  Icons.opacity,
+                  Colors.purple,
+                ),
+                const Divider(height: 24),
+                _buildControlSwitch(
+                  'Grow Lights',
+                  actuatorData.lights,
+                  (value) => _toggleActuator(viewModel, actuatorData, 'lights', value),
+                  Icons.lightbulb_outline,
+                  Colors.amber,
+                ),
+                const Divider(height: 24),
+                _buildControlSwitch(
+                  'Fan',
+                  actuatorData.fan,
+                  (value) => _toggleActuator(viewModel, actuatorData, 'fan', value),
+                  Icons.air,
+                  Colors.teal,
+                ),
+              ],
             ),
-            const Divider(height: 24),
-            _buildControlSwitch(
-              'Grow Lights',
-              _lightsState,
-                  (value) => setState(() => _lightsState = value),
-              Icons.lightbulb_outline,
-              Colors.amber,
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -267,5 +290,30 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
         Text(time, style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12)),
       ],
     );
+  }
+
+  void _toggleActuator(SensorViewModel viewModel, ActuatorData actuatorData, String actuatorName, bool value) async {
+    // Create updated actuator data with new value
+    final updatedData = ActuatorData(
+      waterPump: actuatorName == 'waterPump' ? value : actuatorData.waterPump,
+      nutrientPump: actuatorName == 'nutrientPump' ? value : actuatorData.nutrientPump,
+      lights: actuatorName == 'lights' ? value : actuatorData.lights,
+      fan: actuatorName == 'fan' ? value : actuatorData.fan,
+      timestamp: DateTime.now(),
+    );
+
+    // Send command to Firebase
+    await viewModel.sendActuatorCommand(updatedData);
+    
+    // Show feedback
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${actuatorName == 'waterPump' ? 'Water Pump' : actuatorName == 'nutrientPump' ? 'Nutrient Pump' : actuatorName == 'lights' ? 'Lights' : 'Fan'} turned ${value ? 'ON' : 'OFF'}'),
+          duration: const Duration(seconds: 2),
+          backgroundColor: Colors.green[700],
+        ),
+      );
+    }
   }
 }
