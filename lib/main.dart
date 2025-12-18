@@ -59,7 +59,7 @@ class SmartHydroponicApp extends StatelessWidget {
 // ------------------ Routes ------------------
 class AppRoutes {
   static const splash = '/splash';
-  static const auth = '/auth'; // New route for auth wrapper
+  static const auth = '/auth';
   static const login = '/login';
   static const register = '/register';
   static const forgot = '/forgot';

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hydroponic_app/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/sensor_viewmodel.dart';
 import '../widgets/sensor_tile.dart';
@@ -38,8 +39,6 @@ class _DashboardScreenState extends State<DashboardScreen>
         );
 
     _animationController.forward();
-
-    // Firestore streams are automatically loaded in SensorViewModel constructor
   }
 
   @override
@@ -82,7 +81,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? AppTheme.darkPrimaryColor
+                          : AppTheme.primaryColor,
                       borderRadius: const BorderRadius.only(
                         bottomLeft: Radius.circular(30),
                         bottomRight: Radius.circular(30),

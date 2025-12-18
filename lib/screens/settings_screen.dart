@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:hydroponic_app/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -63,19 +64,21 @@ class _SettingsScreenState extends State<SettingsScreen>
         CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
 
     _animationController.forward();
-    
+
     // Check biometric availability
     _checkBiometricAvailability();
-    
+
     // Monitor auth state
-    firebase_auth.FirebaseAuth.instance.authStateChanges().listen((firebase_auth.User? user) {
+    firebase_auth.FirebaseAuth.instance
+        .authStateChanges()
+        .listen((firebase_auth.User? user) {
       if (user != null && mounted) {
         _loadThresholds();
         _loadCalibration();
         _loadUserProfile();
       }
     });
-    
+
     _loadThresholds();
     _loadCalibration();
     _loadUserProfile();
@@ -98,7 +101,7 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   Future<void> _loadThresholds() async {
     final user = firebase_auth.FirebaseAuth.instance.currentUser;
-    
+
     if (user != null) {
       final thresholds = await _firestoreService.getSensorThresholds(user.uid);
       if (thresholds != null) {
@@ -125,9 +128,10 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   Future<void> _loadCalibration() async {
     final user = firebase_auth.FirebaseAuth.instance.currentUser;
-    
+
     if (user != null) {
-      final calibration = await _firestoreService.getSystemCalibration(user.uid);
+      final calibration =
+          await _firestoreService.getSystemCalibration(user.uid);
       if (calibration != null) {
         setState(() {
           _calibration = calibration;
@@ -147,17 +151,17 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   Future<void> _loadUserProfile() async {
     final user = firebase_auth.FirebaseAuth.instance.currentUser;
-    
+
     if (user != null) {
       // Try to load from Firestore first
       var profile = await _firestoreService.getUserProfile(user.uid);
-      
+
       // If no profile exists in Firestore, create one from Firebase Auth
       if (profile == null) {
         profile = UserProfile.fromFirebaseUser(user);
         await _firestoreService.createUserProfile(profile);
       }
-      
+
       setState(() {
         _userProfile = profile;
         _isLoadingProfile = false;
@@ -210,7 +214,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                 Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? AppTheme.darkPrimaryColor
+                        : AppTheme.primaryColor,
                     borderRadius: const BorderRadius.only(
                       bottomLeft: Radius.circular(30),
                       bottomRight: Radius.circular(30),
@@ -224,13 +230,25 @@ class _SettingsScreenState extends State<SettingsScreen>
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: Theme.of(context).colorScheme.onPrimary, width: 3),
+                            border: Border.all(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? AppTheme.darkPrimaryColor
+                                    : AppTheme.primaryColor,
+                                width: 3),
                           ),
                           child: CircleAvatar(
                             radius: 45,
-                            backgroundColor: Theme.of(context).colorScheme.onPrimary,
+                            backgroundColor:
+                                Theme.of(context).brightness == Brightness.light
+                                    ? Colors.white
+                                    : AppTheme.primaryColor,
                             child: Icon(Icons.person,
-                                size: 50, color: Theme.of(context).colorScheme.primary),
+                                size: 50,
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? AppTheme.darkPrimaryColor
+                                    : AppTheme.primaryColor),
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -249,7 +267,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 style: TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w800,
-                                  color: Theme.of(context).colorScheme.onPrimary,
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.light
+                                      ? Colors.white
+                                      : AppTheme.primaryColor,
                                 ),
                               ),
                         const SizedBox(height: 4),
@@ -259,7 +280,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                                 _userProfile?.email ?? 'user@example.com',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Theme.of(context).colorScheme.onPrimary.withOpacity(0.9),
+                                  color: Theme.of(context).brightness ==
+                                          Brightness.light
+                                      ? Colors.white
+                                      : AppTheme.primaryColor,
                                 ),
                               ),
                         const SizedBox(height: 16),
@@ -268,8 +292,14 @@ class _SettingsScreenState extends State<SettingsScreen>
                             _showEditProfileDialog();
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.onPrimary,
-                            foregroundColor: Theme.of(context).colorScheme.primary,
+                            backgroundColor:
+                                Theme.of(context).brightness == Brightness.light
+                                    ? Colors.white
+                                    : AppTheme.primaryColor,
+                            foregroundColor:
+                                Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.black
+                                    : AppTheme.primaryColor,
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 24, vertical: 10),
                             shape: RoundedRectangleBorder(
@@ -311,11 +341,17 @@ class _SettingsScreenState extends State<SettingsScreen>
                         child: Column(
                           children: [
                             _buildNotificationTile(),
-                            Divider(height: 1, color: Theme.of(context).dividerColor),
+                            Divider(
+                                height: 1,
+                                color: Theme.of(context).dividerColor),
                             _buildWateringTile(),
-                            Divider(height: 1, color: Theme.of(context).dividerColor),
+                            Divider(
+                                height: 1,
+                                color: Theme.of(context).dividerColor),
                             _buildBiometricTile(),
-                            Divider(height: 1, color: Theme.of(context).dividerColor),
+                            Divider(
+                                height: 1,
+                                color: Theme.of(context).dividerColor),
                             Consumer<ThemeViewModel>(
                               builder: (context, themeViewModel, child) {
                                 return _buildSwitchTile(
@@ -323,7 +359,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                                   title: 'Dark Mode',
                                   subtitle: 'Enable dark theme',
                                   value: themeViewModel.isDarkMode,
-                                  onChanged: (val) => themeViewModel.setThemeMode(val),
+                                  onChanged: (val) =>
+                                      themeViewModel.setThemeMode(val),
                                   iconColor: Colors.indigo,
                                 );
                               },
@@ -351,7 +388,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: Theme.of(context).textTheme.bodyLarge?.color,
+                              color:
+                                  Theme.of(context).textTheme.bodyLarge?.color,
                             ),
                           ),
                           if (_isLoadingThresholds)
@@ -382,7 +420,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                               iconColor: Colors.red,
                               onTap: () => _showTemperatureThresholdDialog(),
                             ),
-                            Divider(height: 1, color: Theme.of(context).dividerColor),
+                            Divider(
+                                height: 1,
+                                color: Theme.of(context).dividerColor),
                             _buildNavigationTile(
                               icon: Icons.water_drop,
                               title: 'Water Level',
@@ -391,7 +431,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                               iconColor: Colors.blue,
                               onTap: () => _showWaterLevelThresholdDialog(),
                             ),
-                            Divider(height: 1, color: Theme.of(context).dividerColor),
+                            Divider(
+                                height: 1,
+                                color: Theme.of(context).dividerColor),
                             _buildNavigationTile(
                               icon: Icons.science,
                               title: 'pH Level',
@@ -400,7 +442,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                               iconColor: Colors.purple,
                               onTap: () => _showPhThresholdDialog(),
                             ),
-                            Divider(height: 1, color: Theme.of(context).dividerColor),
+                            Divider(
+                                height: 1,
+                                color: Theme.of(context).dividerColor),
                             _buildNavigationTile(
                               icon: Icons.opacity,
                               title: 'TDS/EC Level',
@@ -409,7 +453,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                               iconColor: Colors.amber,
                               onTap: () => _showTdsThresholdDialog(),
                             ),
-                            Divider(height: 1, color: Theme.of(context).dividerColor),
+                            Divider(
+                                height: 1,
+                                color: Theme.of(context).dividerColor),
                             _buildNavigationTile(
                               icon: Icons.wb_sunny,
                               title: 'Light Intensity',
@@ -441,7 +487,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
-                              color: Theme.of(context).textTheme.bodyLarge?.color,
+                              color:
+                                  Theme.of(context).textTheme.bodyLarge?.color,
                             ),
                           ),
                           if (_isLoadingCalibration)
@@ -483,10 +530,13 @@ class _SettingsScreenState extends State<SettingsScreen>
                               icon: Icons.thermostat,
                               title: 'Temperature Sensor',
                               sensorType: 'temperature',
-                              calibration: _calibration.getSensor('temperature'),
+                              calibration:
+                                  _calibration.getSensor('temperature'),
                               iconColor: Colors.red,
                             ),
-                            Divider(height: 1, color: Theme.of(context).dividerColor),
+                            Divider(
+                                height: 1,
+                                color: Theme.of(context).dividerColor),
                             _buildCalibrationTile(
                               icon: Icons.water_drop,
                               title: 'Water Level Sensor',
@@ -494,7 +544,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                               calibration: _calibration.getSensor('waterLevel'),
                               iconColor: Colors.blue,
                             ),
-                            Divider(height: 1, color: Theme.of(context).dividerColor),
+                            Divider(
+                                height: 1,
+                                color: Theme.of(context).dividerColor),
                             _buildCalibrationTile(
                               icon: Icons.science,
                               title: 'pH Sensor',
@@ -502,7 +554,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                               calibration: _calibration.getSensor('ph'),
                               iconColor: Colors.purple,
                             ),
-                            Divider(height: 1, color: Theme.of(context).dividerColor),
+                            Divider(
+                                height: 1,
+                                color: Theme.of(context).dividerColor),
                             _buildCalibrationTile(
                               icon: Icons.opacity,
                               title: 'TDS/EC Sensor',
@@ -510,7 +564,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                               calibration: _calibration.getSensor('tds'),
                               iconColor: Colors.amber,
                             ),
-                            Divider(height: 1, color: Theme.of(context).dividerColor),
+                            Divider(
+                                height: 1,
+                                color: Theme.of(context).dividerColor),
                             _buildCalibrationTile(
                               icon: Icons.wb_sunny,
                               title: 'Light Sensor',
@@ -556,7 +612,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                               iconColor: Colors.red,
                               onTap: () => _showTemperatureUnitDialog(),
                             ),
-                            Divider(height: 1, color: Theme.of(context).dividerColor),
+                            Divider(
+                                height: 1,
+                                color: Theme.of(context).dividerColor),
                             _buildNavigationTile(
                               icon: Icons.language,
                               title: 'Language',
@@ -564,7 +622,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                               iconColor: Colors.teal,
                               onTap: () => _showLanguageDialog(),
                             ),
-                            Divider(height: 1, color: Theme.of(context).dividerColor),
+                            Divider(
+                                height: 1,
+                                color: Theme.of(context).dividerColor),
                             _buildNavigationTile(
                               icon: Icons.schedule,
                               title: 'Watering Schedule',
@@ -611,7 +671,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                               iconColor: Colors.amber,
                               onTap: () => _showSnackBar('Opening help center'),
                             ),
-                            Divider(height: 1, color: Theme.of(context).dividerColor),
+                            Divider(
+                                height: 1,
+                                color: Theme.of(context).dividerColor),
                             _buildNavigationTile(
                               icon: Icons.privacy_tip_outlined,
                               title: 'Privacy Policy',
@@ -620,7 +682,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                               onTap: () =>
                                   _showSnackBar('Opening privacy policy'),
                             ),
-                            Divider(height: 1, color: Theme.of(context).dividerColor),
+                            Divider(
+                                height: 1,
+                                color: Theme.of(context).dividerColor),
                             _buildNavigationTile(
                               icon: Icons.info_outline,
                               title: 'About App',
@@ -666,7 +730,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                               iconColor: Colors.deepOrange,
                               onTap: _showChangePasswordDialog,
                             ),
-                            Divider(height: 1, color: Theme.of(context).dividerColor),
+                            Divider(
+                                height: 1,
+                                color: Theme.of(context).dividerColor),
                             _buildNavigationTile(
                               icon: Icons.logout,
                               title: 'Sign Out',
@@ -699,7 +765,8 @@ class _SettingsScreenState extends State<SettingsScreen>
           color: Colors.orange.withOpacity(0.1),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: const Icon(Icons.notifications_active, color: Colors.orange, size: 24),
+        child: const Icon(Icons.notifications_active,
+            color: Colors.orange, size: 24),
       ),
       title: const Text(
         'Push Notifications',
@@ -815,7 +882,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         ),
       ),
       subtitle: Text(
-        _biometricAvailable 
+        _biometricAvailable
             ? 'Secure app with biometric authentication'
             : 'Not available on this device',
         style: TextStyle(
@@ -826,14 +893,14 @@ class _SettingsScreenState extends State<SettingsScreen>
       trailing: Switch(
         value: _biometricAuth,
         activeColor: Theme.of(context).colorScheme.primary,
-        onChanged: _biometricAvailable 
+        onChanged: _biometricAvailable
             ? (val) async {
                 if (val) {
                   // Authenticate before enabling
-                  final result = await _biometricService.authenticateWithDetails(
-                    reason: 'Authenticate to enable $_biometricType'
-                  );
-                  
+                  final result =
+                      await _biometricService.authenticateWithDetails(
+                          reason: 'Authenticate to enable $_biometricType');
+
                   if (result['success']) {
                     setState(() => _biometricAuth = true);
                     await _saveBiometricSetting(true);
@@ -922,7 +989,8 @@ class _SettingsScreenState extends State<SettingsScreen>
           color: Theme.of(context).textTheme.bodySmall?.color,
         ),
       ),
-      trailing: Icon(Icons.chevron_right, color: Theme.of(context).textTheme.bodySmall?.color),
+      trailing: Icon(Icons.chevron_right,
+          color: Theme.of(context).textTheme.bodySmall?.color),
       onTap: onTap,
     );
   }
@@ -1052,7 +1120,9 @@ class _SettingsScreenState extends State<SettingsScreen>
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.email, color: Theme.of(context).textTheme.bodySmall?.color, size: 20),
+                      Icon(Icons.email,
+                          color: Theme.of(context).textTheme.bodySmall?.color,
+                          size: 20),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(
@@ -1062,7 +1132,10 @@ class _SettingsScreenState extends State<SettingsScreen>
                               'Email',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Theme.of(context).textTheme.bodySmall?.color,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.color,
                               ),
                             ),
                             Text(
@@ -1102,10 +1175,10 @@ class _SettingsScreenState extends State<SettingsScreen>
               if (formKey.currentState!.validate()) {
                 // Get values before closing dialog
                 final newDisplayName = nameController.text.trim();
-                
+
                 // Close dialog first
                 Navigator.pop(context);
-                
+
                 // Now create and save profile
                 final updatedProfile = _userProfile!.copyWith(
                   displayName: newDisplayName,
@@ -1133,13 +1206,13 @@ class _SettingsScreenState extends State<SettingsScreen>
         setState(() {
           _userProfile = profile;
         });
-        
+
         // Also update Firebase Auth display name
         final user = firebase_auth.FirebaseAuth.instance.currentUser;
         if (user != null) {
           await user.updateDisplayName(profile.displayName);
         }
-        
+
         _showSnackBar(result['message']);
       } else {
         _showSnackBar(result['message']);
@@ -1262,14 +1335,20 @@ class _SettingsScreenState extends State<SettingsScreen>
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.info_outline, color: Theme.of(context).colorScheme.onPrimaryContainer, size: 20),
+                        Icon(Icons.info_outline,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onPrimaryContainer,
+                            size: 20),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Password must be at least 6 characters long',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onPrimaryContainer,
                             ),
                           ),
                         ),
@@ -1301,7 +1380,8 @@ class _SettingsScreenState extends State<SettingsScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.deepOrange,
               ),
-              child: const Text('Update Password', style: TextStyle(color: Colors.white)),
+              child: const Text('Update Password',
+                  style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -1309,10 +1389,11 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  Future<void> _changePassword(String currentPassword, String newPassword) async {
+  Future<void> _changePassword(
+      String currentPassword, String newPassword) async {
     try {
       final user = firebase_auth.FirebaseAuth.instance.currentUser;
-      
+
       if (user == null || user.email == null) {
         _showSnackBar('User not authenticated');
         return;
@@ -1370,19 +1451,23 @@ class _SettingsScreenState extends State<SettingsScreen>
             const SizedBox(height: 12),
             Text(
               'SMART Hydroponic is your complete solution for monitoring and controlling your hydroponic garden system.',
-              style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
+              style: TextStyle(
+                  color: Theme.of(context).textTheme.bodyMedium?.color),
             ),
             const SizedBox(height: 12),
             Text(
               '© 2025 SMART Hydroponic Team',
-              style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
+              style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).textTheme.bodySmall?.color),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Close', style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+            child: Text('Close',
+                style: TextStyle(color: Theme.of(context).colorScheme.primary)),
           ),
         ],
       ),
@@ -1433,7 +1518,7 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   void _showSnackBar(String message) {
     if (!mounted) return;
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -1445,7 +1530,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   // ============ SETTINGS PERSISTENCE ============
-  
+
   Future<void> _saveNotificationsSetting(bool value) async {
     final user = firebase_auth.FirebaseAuth.instance.currentUser;
     if (user == null || _userProfile == null) return;
@@ -1455,9 +1540,9 @@ class _SettingsScreenState extends State<SettingsScreen>
         notificationsEnabled: value,
         lastUpdated: DateTime.now(),
       );
-      
+
       await _firestoreService.saveUserProfile(updatedProfile);
-      
+
       setState(() {
         _userProfile = updatedProfile;
       });
@@ -1475,9 +1560,9 @@ class _SettingsScreenState extends State<SettingsScreen>
         autoWatering: value,
         lastUpdated: DateTime.now(),
       );
-      
+
       await _firestoreService.saveUserProfile(updatedProfile);
-      
+
       setState(() {
         _userProfile = updatedProfile;
       });
@@ -1524,20 +1609,20 @@ class _SettingsScreenState extends State<SettingsScreen>
 
       // Save to SharedPreferences (local)
       await _biometricService.setBiometricEnabled(value);
-      
+
       // Save to Firebase (cloud)
       final updatedProfile = _userProfile!.copyWith(
         biometricEnabled: value,
         lastUpdated: DateTime.now(),
       );
-      
+
       await _firestoreService.saveUserProfile(updatedProfile);
-      
+
       setState(() {
         _userProfile = updatedProfile;
       });
-      
-      _showSnackBar(value 
+
+      _showSnackBar(value
           ? '$_biometricType enabled - You can now login with fingerprint'
           : '$_biometricType disabled');
     } catch (e) {
@@ -1589,9 +1674,9 @@ class _SettingsScreenState extends State<SettingsScreen>
         temperatureUnit: value,
         lastUpdated: DateTime.now(),
       );
-      
+
       await _firestoreService.saveUserProfile(updatedProfile);
-      
+
       setState(() {
         _userProfile = updatedProfile;
       });
@@ -1609,9 +1694,9 @@ class _SettingsScreenState extends State<SettingsScreen>
         language: value,
         lastUpdated: DateTime.now(),
       );
-      
+
       await _firestoreService.saveUserProfile(updatedProfile);
-      
+
       setState(() {
         _userProfile = updatedProfile;
       });
@@ -2104,18 +2189,18 @@ class _SettingsScreenState extends State<SettingsScreen>
 
   Future<void> _saveThreshold(SensorThresholds thresholds) async {
     final user = firebase_auth.FirebaseAuth.instance.currentUser;
-    
+
     if (user == null) {
       _showSnackBar('Not signed in. Please log in first.');
       return;
     }
-    
+
     try {
       final result = await _firestoreService.saveSensorThresholds(
         user.uid,
         thresholds,
       );
-      
+
       if (result['success'] == true) {
         setState(() {
           _thresholds = thresholds;
@@ -2375,8 +2460,8 @@ class _SettingsScreenState extends State<SettingsScreen>
 
     try {
       final updatedSystem = _calibration.updateSensor(sensorType, calibration);
-      final result =
-          await _firestoreService.saveSystemCalibration(user.uid, updatedSystem);
+      final result = await _firestoreService.saveSystemCalibration(
+          user.uid, updatedSystem);
 
       if (result['success'] == true) {
         setState(() {

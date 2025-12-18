@@ -1,5 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:hydroponic_app/theme/app_theme.dart';
 import '../widgets/main_layout.dart';
 
 class AnalyticsScreen extends StatefulWidget {
@@ -341,7 +342,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> with SingleTickerProv
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary,
+          color: AppTheme.primaryColor,
           borderRadius: BorderRadius.circular(16),
         ),
         child: const Row(
