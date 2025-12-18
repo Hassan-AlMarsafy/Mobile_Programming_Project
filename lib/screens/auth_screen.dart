@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/auth_viewmodel.dart';
 import '../utils/validators.dart';
+import '../services/biometric_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Login Screen
 class LoginScreen extends StatefulWidget {
@@ -17,6 +19,72 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passCtrl = TextEditingController();
   bool _obscure = true;
   bool _isLoading = false;
+  final BiometricService _biometricService = BiometricService();
+  bool _biometricAvailable = false;
+  bool _biometricEnabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBiometric();
+  }
+
+  Future<void> _checkBiometric() async {
+    final available = await _biometricService.isBiometricAvailable();
+    final enabled = await _biometricService.isBiometricEnabled();
+    setState(() {
+      _biometricAvailable = available;
+      _biometricEnabled = enabled;
+    });
+  }
+
+  Future<void> _loginWithBiometric() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedEmail = prefs.getString('biometric_email');
+    final savedPassword = prefs.getString('biometric_password');
+
+    if (savedEmail == null || savedPassword == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No saved credentials. Please login with password first and enable biometric in Settings.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final result = await _biometricService.authenticateWithDetails(
+      reason: 'Authenticate to login'
+    );
+
+    if (result['success']) {
+      setState(() => _isLoading = true);
+      final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+      final loginResult = await authViewModel.login(
+        email: savedEmail,
+        password: savedPassword,
+      );
+      setState(() => _isLoading = false);
+
+      if (loginResult['success']) {
+        Navigator.pushReplacementNamed(context, '/dashboard');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(loginResult['message'] ?? 'Login failed'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['error'] ?? 'Authentication failed'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -192,6 +260,45 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                   ),
+                  
+                  // Biometric login button
+                  if (_biometricAvailable && _biometricEnabled) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(child: Divider(color: Theme.of(context).dividerColor)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            'OR',
+                            style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12),
+                          ),
+                        ),
+                        Expanded(child: Divider(color: Theme.of(context).dividerColor)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    OutlinedButton.icon(
+                      onPressed: _isLoading ? null : _loginWithBiometric,
+                      icon: const Icon(Icons.fingerprint, size: 28),
+                      label: const Text(
+                        'Login with Fingerprint',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: Colors.purple, width: 2),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)
+                        ),
+                        foregroundColor: Colors.purple,
+                      ),
+                    ),
+                  ],
+                  
                   const SizedBox(height: 20),
 
                   // Divider

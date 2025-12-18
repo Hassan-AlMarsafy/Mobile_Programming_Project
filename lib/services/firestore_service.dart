@@ -4,6 +4,8 @@ import '../models/actuator_data.dart';
 import '../models/sensor_thresholds.dart';
 import '../models/sensor_calibration.dart';
 import '../models/user.dart';
+import '../models/notification_preferences.dart';
+import '../models/watering_schedule.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -391,6 +393,102 @@ class FirestoreService {
         'success': false,
         'message': 'Failed to create profile: ${e.toString()}',
         'error': e.toString()
+      };
+    }
+  }
+
+  // ============ NOTIFICATION PREFERENCES METHODS ============
+
+  Future<NotificationPreferences?> getNotificationPreferences(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('settings')
+          .doc('notifications')
+          .get();
+      
+      if (snapshot.exists && snapshot.data() != null) {
+        return NotificationPreferences.fromJson(snapshot.data()!);
+      }
+      return NotificationPreferences.defaultPreferences();
+    } catch (e) {
+      return NotificationPreferences.defaultPreferences();
+    }
+  }
+
+  Future<Map<String, dynamic>> saveNotificationPreferences(
+      String userId, NotificationPreferences preferences) async {
+    try {
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('settings')
+          .doc('notifications')
+          .set(preferences.toJson(), SetOptions(merge: true));
+      
+      return {'success': true, 'message': 'Notification preferences saved'};
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Failed to save preferences: ${e.toString()}',
+      };
+    }
+  }
+
+  Future<List<NotificationHistoryItem>> getNotificationHistory(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('notifications')
+          .orderBy('timestamp', descending: true)
+          .limit(50)
+          .get();
+      
+      return snapshot.docs
+          .map((doc) => NotificationHistoryItem.fromJson(doc.data()))
+          .toList();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // ============ WATERING SCHEDULE METHODS ============
+
+  Future<WateringSchedule?> getWateringSchedule(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('settings')
+          .doc('watering_schedule')
+          .get();
+      
+      if (snapshot.exists && snapshot.data() != null) {
+        return WateringSchedule.fromJson(snapshot.data()!);
+      }
+      return WateringSchedule.defaultSchedule();
+    } catch (e) {
+      return WateringSchedule.defaultSchedule();
+    }
+  }
+
+  Future<Map<String, dynamic>> saveWateringSchedule(
+      String userId, WateringSchedule schedule) async {
+    try {
+      await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('settings')
+          .doc('watering_schedule')
+          .set(schedule.toJson(), SetOptions(merge: true));
+      
+      return {'success': true, 'message': 'Watering schedule saved'};
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Failed to save schedule: ${e.toString()}',
       };
     }
   }

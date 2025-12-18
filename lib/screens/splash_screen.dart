@@ -77,7 +77,7 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   void _navigateToAuth() {
-    Navigator.pushReplacementNamed(context, '/login');
+    Navigator.pushReplacementNamed(context, '/auth');
   }
 
   @override

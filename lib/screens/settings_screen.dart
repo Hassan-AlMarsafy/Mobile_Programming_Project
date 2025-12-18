@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/validators.dart';
 import '../services/firestore_service.dart';
+import '../services/biometric_service.dart';
 import '../viewmodels/theme_viewmodel.dart';
 import '../models/sensor_thresholds.dart';
 import '../models/sensor_calibration.dart';
 import '../models/user.dart';
+import 'notification_settings_screen.dart';
+import 'watering_schedule_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -23,6 +27,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   late Animation<Offset> _slideAnimation;
 
   final FirestoreService _firestoreService = FirestoreService();
+  final BiometricService _biometricService = BiometricService();
   SensorThresholds _thresholds = SensorThresholds.defaultThresholds();
   SystemCalibration _calibration = SystemCalibration.defaultCalibration();
   UserProfile? _userProfile;
@@ -33,6 +38,8 @@ class _SettingsScreenState extends State<SettingsScreen>
   bool _notificationsEnabled = true;
   bool _autoWatering = true;
   bool _biometricAuth = false;
+  bool _biometricAvailable = false;
+  String _biometricType = 'Biometric';
   String _temperatureUnit = 'Celsius';
   String _language = 'English';
 
@@ -57,6 +64,9 @@ class _SettingsScreenState extends State<SettingsScreen>
 
     _animationController.forward();
     
+    // Check biometric availability
+    _checkBiometricAvailability();
+    
     // Monitor auth state
     firebase_auth.FirebaseAuth.instance.authStateChanges().listen((firebase_auth.User? user) {
       if (user != null && mounted) {
@@ -69,6 +79,21 @@ class _SettingsScreenState extends State<SettingsScreen>
     _loadThresholds();
     _loadCalibration();
     _loadUserProfile();
+  }
+
+  Future<void> _checkBiometricAvailability() async {
+    final available = await _biometricService.isBiometricAvailable();
+    if (available) {
+      final typeName = await _biometricService.getBiometricTypeName();
+      setState(() {
+        _biometricAvailable = true;
+        _biometricType = typeName;
+      });
+    } else {
+      setState(() {
+        _biometricAvailable = false;
+      });
+    }
   }
 
   Future<void> _loadThresholds() async {
@@ -139,6 +164,7 @@ class _SettingsScreenState extends State<SettingsScreen>
         // Load settings from profile
         _notificationsEnabled = profile!.notificationsEnabled;
         _autoWatering = profile.autoWatering;
+        _biometricAuth = profile.biometricEnabled;
         _temperatureUnit = profile.temperatureUnit;
         _language = profile.language;
       });
@@ -284,39 +310,11 @@ class _SettingsScreenState extends State<SettingsScreen>
                         ),
                         child: Column(
                           children: [
-                            _buildSwitchTile(
-                              icon: Icons.notifications_active,
-                              title: 'Push Notifications',
-                              subtitle: 'Receive alerts and updates',
-                              value: _notificationsEnabled,
-                              onChanged: (val) {
-                                setState(() => _notificationsEnabled = val);
-                                _saveNotificationsSetting(val);
-                              },
-                              iconColor: Colors.orange,
-                            ),
+                            _buildNotificationTile(),
                             Divider(height: 1, color: Theme.of(context).dividerColor),
-                            _buildSwitchTile(
-                              icon: Icons.water_drop,
-                              title: 'Auto Watering',
-                              subtitle: 'Automatically water plants',
-                              value: _autoWatering,
-                              onChanged: (val) {
-                                setState(() => _autoWatering = val);
-                                _saveAutoWateringSetting(val);
-                              },
-                              iconColor: Colors.blue,
-                            ),
+                            _buildWateringTile(),
                             Divider(height: 1, color: Theme.of(context).dividerColor),
-                            _buildSwitchTile(
-                              icon: Icons.fingerprint,
-                              title: 'Biometric Authentication',
-                              subtitle: 'Use fingerprint or face ID',
-                              value: _biometricAuth,
-                              onChanged: (val) =>
-                                  setState(() => _biometricAuth = val),
-                              iconColor: Colors.purple,
-                            ),
+                            _buildBiometricTile(),
                             Divider(height: 1, color: Theme.of(context).dividerColor),
                             Consumer<ThemeViewModel>(
                               builder: (context, themeViewModel, child) {
@@ -688,6 +686,167 @@ class _SettingsScreenState extends State<SettingsScreen>
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildNotificationTile() {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.orange.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.notifications_active, color: Colors.orange, size: 24),
+      ),
+      title: const Text(
+        'Push Notifications',
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      subtitle: Text(
+        'Receive alerts and updates',
+        style: TextStyle(
+          fontSize: 13,
+          color: Theme.of(context).textTheme.bodySmall?.color,
+        ),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            color: Theme.of(context).colorScheme.primary,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const NotificationSettingsScreen(),
+                ),
+              );
+            },
+          ),
+          Switch(
+            value: _notificationsEnabled,
+            activeColor: Theme.of(context).colorScheme.primary,
+            onChanged: (val) {
+              setState(() => _notificationsEnabled = val);
+              _saveNotificationsSetting(val);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWateringTile() {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.blue.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.water_drop, color: Colors.blue, size: 24),
+      ),
+      title: const Text(
+        'Auto Watering',
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      subtitle: Text(
+        'Automatically water plants',
+        style: TextStyle(
+          fontSize: 13,
+          color: Theme.of(context).textTheme.bodySmall?.color,
+        ),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.schedule),
+            color: Theme.of(context).colorScheme.primary,
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const WateringScheduleScreen(),
+                ),
+              );
+            },
+          ),
+          Switch(
+            value: _autoWatering,
+            activeColor: Theme.of(context).colorScheme.primary,
+            onChanged: (val) {
+              setState(() => _autoWatering = val);
+              _saveAutoWateringSetting(val);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBiometricTile() {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.purple.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.fingerprint, color: Colors.purple, size: 24),
+      ),
+      title: Text(
+        _biometricType,
+        style: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      subtitle: Text(
+        _biometricAvailable 
+            ? 'Secure app with biometric authentication'
+            : 'Not available on this device',
+        style: TextStyle(
+          fontSize: 13,
+          color: Theme.of(context).textTheme.bodySmall?.color,
+        ),
+      ),
+      trailing: Switch(
+        value: _biometricAuth,
+        activeColor: Theme.of(context).colorScheme.primary,
+        onChanged: _biometricAvailable 
+            ? (val) async {
+                if (val) {
+                  // Authenticate before enabling
+                  final result = await _biometricService.authenticateWithDetails(
+                    reason: 'Authenticate to enable $_biometricType'
+                  );
+                  
+                  if (result['success']) {
+                    setState(() => _biometricAuth = true);
+                    await _saveBiometricSetting(true);
+                  } else {
+                    final error = result['error'] as String? ?? 'Unknown error';
+                    _showSnackBar(error);
+                  }
+                } else {
+                  setState(() => _biometricAuth = false);
+                  await _saveBiometricSetting(false);
+                }
+              }
+            : null,
       ),
     );
   }
@@ -1325,6 +1484,100 @@ class _SettingsScreenState extends State<SettingsScreen>
     } catch (e) {
       _showSnackBar('Failed to save auto watering setting');
     }
+  }
+
+  Future<void> _saveBiometricSetting(bool value) async {
+    final user = firebase_auth.FirebaseAuth.instance.currentUser;
+    if (user == null || _userProfile == null) return;
+
+    try {
+      if (value) {
+        // When enabling, prompt for password to save securely
+        final password = await _showPasswordDialog();
+        if (password == null || password.isEmpty) {
+          _showSnackBar('Password required to enable biometric login');
+          return;
+        }
+
+        // Verify the password by attempting to re-authenticate
+        try {
+          final credential = firebase_auth.EmailAuthProvider.credential(
+            email: user.email!,
+            password: password,
+          );
+          await user.reauthenticateWithCredential(credential);
+
+          // Password is correct, save it securely
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('biometric_email', user.email!);
+          await prefs.setString('biometric_password', password);
+        } catch (e) {
+          _showSnackBar('Incorrect password');
+          return;
+        }
+      } else {
+        // When disabling, remove saved credentials
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('biometric_email');
+        await prefs.remove('biometric_password');
+      }
+
+      // Save to SharedPreferences (local)
+      await _biometricService.setBiometricEnabled(value);
+      
+      // Save to Firebase (cloud)
+      final updatedProfile = _userProfile!.copyWith(
+        biometricEnabled: value,
+        lastUpdated: DateTime.now(),
+      );
+      
+      await _firestoreService.saveUserProfile(updatedProfile);
+      
+      setState(() {
+        _userProfile = updatedProfile;
+      });
+      
+      _showSnackBar(value 
+          ? '$_biometricType enabled - You can now login with fingerprint'
+          : '$_biometricType disabled');
+    } catch (e) {
+      _showSnackBar('Failed to save biometric setting');
+    }
+  }
+
+  Future<String?> _showPasswordDialog() async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Verify Password'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Enter your password to enable biometric login'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'Password',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('Verify'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _saveTemperatureUnit(String value) async {

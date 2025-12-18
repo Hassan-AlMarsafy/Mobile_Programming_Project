@@ -47,6 +47,7 @@ class UserProfile {
   final bool autoWatering;
   final String temperatureUnit;
   final String language;
+  final bool biometricEnabled;
 
   UserProfile({
     required this.uid,
@@ -60,6 +61,7 @@ class UserProfile {
     this.autoWatering = true,
     this.temperatureUnit = 'Celsius',
     this.language = 'English',
+    this.biometricEnabled = false,
   });
 
   // From JSON (Firebase)
@@ -80,6 +82,7 @@ class UserProfile {
       autoWatering: json['autoWatering'] ?? true,
       temperatureUnit: json['temperatureUnit'] ?? 'Celsius',
       language: json['language'] ?? 'English',
+      biometricEnabled: json['biometricEnabled'] ?? false,
     );
   }
 
@@ -97,6 +100,7 @@ class UserProfile {
       'autoWatering': autoWatering,
       'temperatureUnit': temperatureUnit,
       'language': language,
+      'biometricEnabled': biometricEnabled,
     };
   }
 
@@ -126,6 +130,7 @@ class UserProfile {
     bool? autoWatering,
     String? temperatureUnit,
     String? language,
+    bool? biometricEnabled,
   }) {
     return UserProfile(
       uid: uid ?? this.uid,
@@ -139,6 +144,7 @@ class UserProfile {
       autoWatering: autoWatering ?? this.autoWatering,
       temperatureUnit: temperatureUnit ?? this.temperatureUnit,
       language: language ?? this.language,
+      biometricEnabled: biometricEnabled ?? this.biometricEnabled,
     );
   }
 }
