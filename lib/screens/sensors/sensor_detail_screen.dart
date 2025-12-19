@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:hydroponic_app/theme/app_theme.dart';
 import '../../utils/validators.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/sensor_viewmodel.dart';
 import '../../services/tts_service.dart';
 import '../../viewmodels/settings_viewmodel.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SensorDetailScreen extends StatefulWidget {
   final Map<String, dynamic> sensor;
@@ -15,6 +17,62 @@ class SensorDetailScreen extends StatefulWidget {
 }
 
 class _SensorDetailScreenState extends State<SensorDetailScreen> {
+  // Alert settings state
+  bool _alertsEnabled = true;
+  bool _emailNotifications = false;
+  bool _smsNotifications = true;
+
+  // Calibration tracking
+  DateTime? _lastCalibrated;
+  int _calibrationDueDays = 15;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAlertSettings();
+  }
+
+  Future<void> _loadAlertSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final sensorName = widget.sensor['name'] as String;
+
+    setState(() {
+      _alertsEnabled = prefs.getBool('${sensorName}_alertsEnabled') ?? true;
+      _emailNotifications =
+          prefs.getBool('${sensorName}_emailNotifications') ?? false;
+      _smsNotifications =
+          prefs.getBool('${sensorName}_smsNotifications') ?? true;
+
+      final lastCalibratedMs = prefs.getInt('${sensorName}_lastCalibrated');
+      if (lastCalibratedMs != null) {
+        _lastCalibrated = DateTime.fromMillisecondsSinceEpoch(lastCalibratedMs);
+        // Calculate days until next calibration (every 30 days)
+        final daysSinceCalibration =
+            DateTime.now().difference(_lastCalibrated!).inDays;
+        _calibrationDueDays = 30 - daysSinceCalibration;
+        if (_calibrationDueDays < 0) _calibrationDueDays = 0;
+      }
+    });
+  }
+
+  Future<void> _saveAlertSetting(String key, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    final sensorName = widget.sensor['name'] as String;
+    await prefs.setBool('${sensorName}_$key', value);
+  }
+
+  Future<void> _saveCalibrationDate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final sensorName = widget.sensor['name'] as String;
+    final now = DateTime.now();
+    await prefs.setInt(
+        '${sensorName}_lastCalibrated', now.millisecondsSinceEpoch);
+    setState(() {
+      _lastCalibrated = now;
+      _calibrationDueDays = 30;
+    });
+  }
+
   double _getCalibratedValue() {
     return widget.sensor['value'] + widget.sensor['calibration'];
   }
@@ -181,12 +239,14 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Live Firebase Data',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
-                      color: Colors.black87,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : Colors.black,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -339,12 +399,14 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Calibration Settings',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
-                      color: Colors.black87,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -365,13 +427,17 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                           const Divider(height: 24),
                           _buildCalibrationRow(
                             'Last Calibrated',
-                            'Never',
+                            _lastCalibrated != null
+                                ? '${_lastCalibrated!.day}/${_lastCalibrated!.month}/${_lastCalibrated!.year}'
+                                : 'Never',
                             Icons.history,
                           ),
                           const Divider(height: 24),
                           _buildCalibrationRow(
                             'Calibration Due',
-                            'In 15 days',
+                            _calibrationDueDays > 0
+                                ? 'In $_calibrationDueDays days'
+                                : 'Overdue!',
                             Icons.event,
                           ),
                           const SizedBox(height: 16),
@@ -380,6 +446,7 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                             child: ElevatedButton.icon(
                               onPressed: () {
                                 _showCalibrationDialog();
+                                _saveCalibrationDate();
                               },
                               icon: const Icon(Icons.tune),
                               label: const Text('Recalibrate Sensor'),
@@ -411,12 +478,14 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Alert Settings',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
-                      color: Colors.black87,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -432,24 +501,38 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                           subtitle: const Text(
                             'Get notified of critical readings',
                           ),
-                          value: true,
-                          onChanged: (value) {},
+                          value: _alertsEnabled,
+                          onChanged: (value) {
+                            setState(() => _alertsEnabled = value);
+                            _saveAlertSetting('alertsEnabled', value);
+                          },
                           activeColor: Colors.green[700],
                         ),
                         const Divider(height: 1),
                         SwitchListTile(
                           title: const Text('Email Notifications'),
                           subtitle: const Text('Send alerts via email'),
-                          value: false,
-                          onChanged: (value) {},
+                          value: _emailNotifications,
+                          onChanged: _alertsEnabled
+                              ? (value) {
+                                  setState(() => _emailNotifications = value);
+                                  _saveAlertSetting(
+                                      'emailNotifications', value);
+                                }
+                              : null,
                           activeColor: Colors.green[700],
                         ),
                         const Divider(height: 1),
                         SwitchListTile(
                           title: const Text('SMS Notifications'),
                           subtitle: const Text('Send alerts via SMS'),
-                          value: true,
-                          onChanged: (value) {},
+                          value: _smsNotifications,
+                          onChanged: _alertsEnabled
+                              ? (value) {
+                                  setState(() => _smsNotifications = value);
+                                  _saveAlertSetting('smsNotifications', value);
+                                }
+                              : null,
                           activeColor: Colors.green[700],
                         ),
                       ],
@@ -621,7 +704,9 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceVariant,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? AppTheme.darkPrimaryColor
+                        : AppTheme.primaryColor,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Column(

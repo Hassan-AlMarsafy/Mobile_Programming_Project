@@ -1,16 +1,23 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/sensor_data.dart';
 import '../models/actuator_data.dart';
 import '../models/activity_log.dart';
 import '../services/firestore_service.dart';
+import '../services/database_service.dart';
 
 class SensorViewModel extends ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
+  final DatabaseService _databaseService = DatabaseService();
+  final Connectivity _connectivity = Connectivity();
+
   StreamSubscription<SensorData?>? _sensorSubscription;
   StreamSubscription<ActuatorData?>? _actuatorSubscription;
   StreamSubscription<bool>? _modeSubscription;
   StreamSubscription<List<ActivityLog>>? _activitySubscription;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
 
   // Sensor data
   SensorData? sensorData;
@@ -26,19 +33,97 @@ class SensorViewModel extends ChangeNotifier {
 
   bool loading = true;
 
+  // Offline mode
+  bool isOffline = false;
+  DateTime? lastSyncTime;
+
   SensorViewModel() {
+    _initConnectivity();
     _listenToFirebaseData();
+  }
+
+  void _initConnectivity() {
+    _connectivitySubscription =
+        _connectivity.onConnectivityChanged.listen((results) {
+          final wasOffline = isOffline;
+          isOffline = results.contains(ConnectivityResult.none);
+
+          if (wasOffline && !isOffline) {
+            // Just came online - sync queued commands
+            _syncQueuedCommands();
+          }
+
+          notifyListeners();
+        });
+
+    // Check initial connectivity
+    _connectivity.checkConnectivity().then((results) {
+      isOffline = results.contains(ConnectivityResult.none);
+      if (isOffline) {
+        _loadCachedData();
+      }
+      notifyListeners();
+    });
+  }
+
+  Future<void> _loadCachedData() async {
+    final cachedSensor = await _databaseService.getCachedSensorData();
+    final cachedActuator = await _databaseService.getCachedActuatorData();
+
+    if (cachedSensor != null) {
+      sensorData = cachedSensor;
+      lastSyncTime = cachedSensor.timestamp;
+      loading = false;
+      notifyListeners();
+    }
+
+    if (cachedActuator != null) {
+      actuatorData = cachedActuator;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _syncQueuedCommands() async {
+    final commands = await _databaseService.getUnsynedCommands();
+
+    for (final cmd in commands) {
+      try {
+        final payload = jsonDecode(cmd['payload'] as String);
+
+        if (cmd['command_type'] == 'actuator') {
+          final data = ActuatorData(
+            waterPump: payload['waterPump'] as bool,
+            nutrientPump: payload['nutrientPump'] as bool,
+            lights: payload['lights'] as bool,
+            fan: payload['fan'] as bool,
+            timestamp: DateTime.now(),
+          );
+          await _firestoreService.sendActuatorCommand(data);
+        }
+
+        await _databaseService.markCommandSynced(cmd['id'] as int);
+      } catch (e) {
+        print('Error syncing command: $e');
+      }
+    }
+
+    await _databaseService.clearSyncedCommands();
   }
 
   // Listen to Firebase changes and update local state
   void _listenToFirebaseData() {
     _sensorSubscription = _firestoreService.getSensorDataStream().listen((
-      data,
-    ) {
+        data,
+        ) {
       if (data != null) {
         sensorData = data;
         loading = false;
+        lastSyncTime = data.timestamp;
         notifyListeners();
+
+        // Cache to SQLite for offline mode
+        _databaseService.cacheSensorData(data);
+        _databaseService.addSensorHistory(data);
 
         print(
             'Sensor data updated: Temp=${data.temperature}°C, pH=${data.pH}, Water=${data.waterLevel}%, Light=${data.lightIntensity} lux');
@@ -59,17 +144,19 @@ class SensorViewModel extends ChangeNotifier {
     });
 
     _actuatorSubscription = _firestoreService.getActuatorDataStream().listen((
-      data,
-    ) {
+        data,
+        ) {
       if (data != null) {
         actuatorData = data;
+        // Cache to SQLite for offline mode
+        _databaseService.cacheActuatorData(data);
         notifyListeners();
       }
     });
 
     _modeSubscription = _firestoreService.getSystemModeStream().listen((
-      mode,
-    ) {
+        mode,
+        ) {
       isAutomaticMode = mode;
       notifyListeners();
 
@@ -81,8 +168,8 @@ class SensorViewModel extends ChangeNotifier {
 
     // Listen to activity logs
     _activitySubscription = _firestoreService.getActivityLogsStream().listen((
-      logs,
-    ) {
+        logs,
+        ) {
       activityLogs = logs;
       notifyListeners();
     });
@@ -192,9 +279,26 @@ class SensorViewModel extends ChangeNotifier {
     }
   }
 
-  // Send actuator command to Firebase (for future control features)
+  // Send actuator command to Firebase (queue if offline)
   Future<void> sendActuatorCommand(ActuatorData data) async {
-    await _firestoreService.sendActuatorCommand(data);
+    if (isOffline) {
+      // Queue command for later sync
+      await _databaseService.queueCommand(
+        commandType: 'actuator',
+        payload: jsonEncode({
+          'waterPump': data.waterPump,
+          'nutrientPump': data.nutrientPump,
+          'lights': data.lights,
+          'fan': data.fan,
+        }),
+      );
+      // Update local state
+      actuatorData = data;
+      _databaseService.cacheActuatorData(data);
+      notifyListeners();
+    } else {
+      await _firestoreService.sendActuatorCommand(data);
+    }
   }
 
   // Set system mode
@@ -218,6 +322,7 @@ class SensorViewModel extends ChangeNotifier {
     _actuatorSubscription?.cancel();
     _modeSubscription?.cancel();
     _activitySubscription?.cancel();
+    _connectivitySubscription?.cancel();
     super.dispose();
   }
 }

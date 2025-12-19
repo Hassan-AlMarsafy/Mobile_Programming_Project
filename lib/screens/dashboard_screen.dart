@@ -5,6 +5,7 @@ import '../viewmodels/sensor_viewmodel.dart';
 import '../viewmodels/settings_viewmodel.dart';
 import '../widgets/sensor_tile.dart';
 import '../widgets/main_layout.dart';
+import '../widgets/offline_banner.dart';
 import '../models/actuator_data.dart';
 import '../services/tts_service.dart';
 import '../services/firestore_service.dart';
@@ -87,6 +88,15 @@ class _DashboardScreenState extends State<DashboardScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Offline Banner
+                  Consumer<SensorViewModel>(
+                    builder: (context, viewModel, child) {
+                      if (viewModel.isOffline) {
+                        return OfflineBanner(lastSyncTime: viewModel.lastSyncTime);
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
                   // Header Section
                   Container(
                     width: double.infinity,

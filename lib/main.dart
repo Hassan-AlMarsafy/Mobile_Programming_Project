@@ -14,6 +14,8 @@ import 'screens/sensors/sensors_list_screen.dart';
 import 'screens/sensors/sensor_detail_screen.dart';
 import 'screens/control_screen.dart';
 import 'screens/analytics_screen.dart';
+import 'screens/analytics_history_screen.dart';
+import 'screens/threshold_profiles_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/alerts_screen.dart';
 
@@ -70,6 +72,8 @@ class AppRoutes {
   static const sensorDetail = '/sensor-detail';
   static const control = '/control';
   static const analytics = '/analytics';
+  static const analyticsHistory = '/analytics-history';
+  static const thresholdProfiles = '/threshold-profiles';
   static const settings = '/settings';
   static const alerts = '/alerts';
 
@@ -83,6 +87,8 @@ class AppRoutes {
     sensor: (_) => const SensorScreen(),
     control: (_) => const ControlScreen(),
     analytics: (_) => const AnalyticsScreen(),
+    analyticsHistory: (_) => const AnalyticsHistoryScreen(),
+    thresholdProfiles: (_) => const ThresholdProfilesScreen(),
     settings: (_) => const SettingsScreen(),
     alerts: (_) => const AlertsScreen(),
   };
