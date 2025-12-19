@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:hydroponic_app/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/sensor_viewmodel.dart';
+import '../viewmodels/settings_viewmodel.dart';
 import '../widgets/sensor_tile.dart';
+import '../widgets/main_layout.dart';
+import '../models/actuator_data.dart';
+import '../services/tts_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -10,7 +15,8 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProviderStateMixin {
+class _DashboardScreenState extends State<DashboardScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
@@ -18,7 +24,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize animations
     _animationController = AnimationController(
       vsync: this,
@@ -29,17 +35,12 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
     );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeOut));
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
+          CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+        );
 
     _animationController.forward();
-
-    // Load sensor data
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<SensorViewModel>().loadSensors();
-    });
   }
 
   @override
@@ -50,37 +51,34 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        backgroundColor: Colors.green[700],
-        elevation: 0,
-        title: const Text(
-          'Dashboard',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 20,
-            color: Colors.white,
+    final settingsViewModel = context.watch<SettingsViewModel>();
+    
+    return MainLayout(
+      title: 'Dashboard',
+      currentIndex: 0,
+      actions: [
+        if (settingsViewModel.ttsEnabled)
+          IconButton(
+            icon: const Icon(Icons.volume_up, color: Colors.white),
+            onPressed: () => _speakSystemStatus(),
           ),
+        IconButton(
+          icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+          onPressed: () => Navigator.pushNamed(context, '/alerts'),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-            onPressed: () => Navigator.pushNamed(context, '/alerts'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined, color: Colors.white),
-            onPressed: () => Navigator.pushNamed(context, '/settings'),
-          ),
-        ],
-      ),
-      body: FadeTransition(
+        IconButton(
+          icon: const Icon(Icons.settings_outlined, color: Colors.white),
+          onPressed: () => Navigator.pushNamed(context, '/settings'),
+        ),
+      ],
+      child: FadeTransition(
         opacity: _fadeAnimation,
         child: SlideTransition(
           position: _slideAnimation,
           child: RefreshIndicator(
             onRefresh: () async {
-              await context.read<SensorViewModel>().loadSensors();
+              // Data refreshes automatically via Firestore stream
+              await Future.delayed(const Duration(milliseconds: 500));
             },
             color: Colors.green[700],
             child: SingleChildScrollView(
@@ -92,11 +90,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.green[700]!, Colors.green[600]!],
-                      ),
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? AppTheme.darkPrimaryColor
+                          : AppTheme.primaryColor,
                       borderRadius: const BorderRadius.only(
                         bottomLeft: Radius.circular(30),
                         bottomRight: Radius.circular(30),
@@ -135,12 +131,12 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'System Status',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
-                            color: Colors.black87,
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -155,20 +151,21 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
+                        Text(
                           'Sensor Readings',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
-                            color: Colors.black87,
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                         ),
                         TextButton(
-                          onPressed: () => Navigator.pushNamed(context, '/sensor'),
+                          onPressed: () =>
+                              Navigator.pushNamed(context, '/sensor'),
                           child: Text(
                             'View All',
                             style: TextStyle(
-                              color: Colors.green[700],
+                              color: Theme.of(context).colorScheme.primary,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -179,7 +176,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                   const SizedBox(height: 8),
                   Consumer<SensorViewModel>(
                     builder: (context, viewModel, child) {
-                      if (viewModel.loading) {
+                      if (viewModel.loading || viewModel.sensorData == null) {
                         return const Center(
                           child: Padding(
                             padding: EdgeInsets.all(32.0),
@@ -187,6 +184,8 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                           ),
                         );
                       }
+
+                      final sensorData = viewModel.sensorData!;
 
                       return Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -200,23 +199,37 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                           children: [
                             SensorCard(
                               title: 'Temperature',
-                              value: '25.5°C',
-                              status: SensorStatus.normal,
+                              value:
+                                  '${sensorData.temperature.toStringAsFixed(1)}°C',
+                              status: _getSensorStatus(
+                                sensorData.temperature,
+                                20,
+                                40,
+                              ),
                             ),
                             SensorCard(
                               title: 'pH Level',
-                              value: '6.8',
-                              status: SensorStatus.normal,
+                              value: sensorData.pH.toStringAsFixed(1),
+                              status: _getSensorStatus(sensorData.pH, 5.5, 7.5),
                             ),
                             SensorCard(
-                              title: 'Humidity',
-                              value: '68%',
-                              status: SensorStatus.warning,
+                              title: 'TDS',
+                              value: '${sensorData.tds.toStringAsFixed(0)} ppm',
+                              status: _getSensorStatus(
+                                sensorData.tds,
+                                500,
+                                1500,
+                              ),
                             ),
                             SensorCard(
                               title: 'Water Level',
-                              value: '85%',
-                              status: SensorStatus.normal,
+                              value:
+                                  '${sensorData.waterLevel.toStringAsFixed(0)}%',
+                              status: _getSensorStatus(
+                                sensorData.waterLevel,
+                                30,
+                                100,
+                              ),
                             ),
                           ],
                         ),
@@ -226,27 +239,35 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
 
                   const SizedBox(height: 24),
 
-                  // Quick Actions Section
+                  // Critical Controls and Mode
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Quick Actions',
+                        Text(
+                          'Quick Controls',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
-                            color: Colors.black87,
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                         ),
                         const SizedBox(height: 16),
-                        _buildQuickActionsGrid(),
+                        _buildCriticalControlsCard(),
                       ],
                     ),
                   ),
 
                   const SizedBox(height: 24),
+
+                  // Quick Actions Section
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start),
+                  ),
+
+                  const SizedBox(height: 15),
 
                   // Recent Activity
                   Padding(
@@ -254,12 +275,12 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Recent Activity',
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
-                            color: Colors.black87,
+                            color: Theme.of(context).textTheme.bodyLarge?.color,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -275,107 +296,324 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
           ),
         ),
       ),
-      bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
   Widget _buildSystemStatusCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.green[600]!, Colors.green[700]!],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.green.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
+    return Consumer<SensorViewModel>(
+      builder: (context, viewModel, child) {
+        final sensorData = viewModel.sensorData;
+        final actuatorData = viewModel.actuatorData;
+        final loading = viewModel.loading;
+
+        // Calculate system health based on sensor readings
+        int criticalIssues = 0;
+        int warnings = 0;
+        int normalSensors = 0;
+        const int totalSensors = 5;
+        
+        if (sensorData != null) {
+          final tempStatus = _getSensorStatus(sensorData.temperature, 20, 30);
+          final phStatus = _getSensorStatus(sensorData.pH, 5.5, 7.5);
+          final tdsStatus = _getSensorStatus(sensorData.tds, 500, 1500);
+          final waterStatus = _getSensorStatus(sensorData.waterLevel, 30, 100);
+          final lightStatus = _getSensorStatus(sensorData.lightIntensity, 0, 1000);
+          
+          // Count issues
+          if (tempStatus == SensorStatus.critical) criticalIssues++;
+          else if (tempStatus == SensorStatus.warning) warnings++;
+          else normalSensors++;
+          
+          if (phStatus == SensorStatus.critical) criticalIssues++;
+          else if (phStatus == SensorStatus.warning) warnings++;
+          else normalSensors++;
+          
+          if (tdsStatus == SensorStatus.critical) criticalIssues++;
+          else if (tdsStatus == SensorStatus.warning) warnings++;
+          else normalSensors++;
+          
+          if (waterStatus == SensorStatus.critical) criticalIssues++;
+          else if (waterStatus == SensorStatus.warning) warnings++;
+          else normalSensors++;
+          
+          if (lightStatus == SensorStatus.critical) criticalIssues++;
+          else if (lightStatus == SensorStatus.warning) warnings++;
+          else normalSensors++;
+        }
+
+        // Calculate health percentage
+        int healthPercentage = sensorData != null 
+            ? ((normalSensors / totalSensors) * 100).round() 
+            : 0;
+        
+        // Sensors connected count
+        int connectedSensors = sensorData != null ? totalSensors : 0;
+
+        // Determine overall status
+        Color statusColor;
+        IconData statusIcon;
+        String statusText;
+        String statusSubtext;
+
+        if (loading) {
+          statusColor = Colors.grey;
+          statusIcon = Icons.sync;
+          statusText = 'Connecting...';
+          statusSubtext = 'Please wait';
+        } else if (criticalIssues > 0) {
+          statusColor = Colors.red[700]!;
+          statusIcon = Icons.error;
+          statusText = 'Critical Issues';
+          statusSubtext = '$criticalIssues sensor(s) need immediate attention';
+        } else if (warnings > 0) {
+          statusColor = Colors.orange[700]!;
+          statusIcon = Icons.warning_amber_rounded;
+          statusText = 'Warning';
+          statusSubtext = '$warnings sensor(s) out of optimal range';
+        } else {
+          statusColor = Colors.green[600]!;
+          statusIcon = Icons.check_circle;
+          statusText = 'All Systems Operational';
+          statusSubtext = 'Everything running smoothly';
+        }
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: statusColor,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: statusColor.withOpacity(0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.check_circle,
-              color: Colors.white,
-              size: 32,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'All Systems Operational',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      statusIcon,
+                      color: Colors.white,
+                      size: 32,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Last updated: ${TimeOfDay.now().format(context)}',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.white.withOpacity(0.9),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          statusText,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          statusSubtext,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withOpacity(0.9),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildStatusMetric(
+                      icon: Icons.sensors,
+                      label: 'Sensors',
+                      value: '$connectedSensors/$totalSensors',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildStatusMetric(
+                      icon: Icons.schedule,
+                      label: 'Updated',
+                      value: sensorData != null 
+                          ? _formatTime(sensorData.timestamp)
+                          : 'N/A',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildStatusMetric(
+                      icon: Icons.health_and_safety,
+                      label: 'Health',
+                      value: '$healthPercentage%',
+                    ),
+                  ),
+                ],
+              ),
+              if (actuatorData != null) ...[
+                const SizedBox(height: 16),
+                const Divider(color: Colors.white30, height: 1),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildActuatorIndicator(
+                      icon: Icons.water_drop,
+                      label: 'Water',
+                      isActive: actuatorData.waterPump,
+                      onTap: () => _toggleActuator(viewModel, actuatorData, 'waterPump'),
+                    ),
+                    _buildActuatorIndicator(
+                      icon: Icons.science,
+                      label: 'Nutrients',
+                      isActive: actuatorData.nutrientPump,
+                      onTap: () => _toggleActuator(viewModel, actuatorData, 'nutrientPump'),
+                    ),
+                    _buildActuatorIndicator(
+                      icon: Icons.lightbulb,
+                      label: 'Lights',
+                      isActive: actuatorData.lights,
+                      onTap: () => _toggleActuator(viewModel, actuatorData, 'lights'),
+                    ),
+                    _buildActuatorIndicator(
+                      icon: Icons.air,
+                      label: 'Fan',
+                      isActive: actuatorData.fan,
+                      onTap: () => _toggleActuator(viewModel, actuatorData, 'fan'),
+                    ),
+                  ],
                 ),
               ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildActuatorIndicator({
+    required IconData icon,
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: isActive 
+                  ? Colors.white.withOpacity(0.3)
+                  : Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isActive 
+                    ? Colors.white.withOpacity(0.5)
+                    : Colors.white.withOpacity(0.2),
+                width: 2,
+              ),
+            ),
+            child: Icon(
+              icon,
+              color: Colors.white,
+              size: 20,
             ),
           ),
-          Icon(
-            Icons.chevron_right,
-            color: Colors.white.withOpacity(0.8),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              color: Colors.white.withOpacity(0.9),
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildQuickActionsGrid() {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildQuickActionCard(
-            icon: Icons.control_camera,
-            label: 'Control',
-            color: Colors.blue,
-            onTap: () => Navigator.pushNamed(context, '/control'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildQuickActionCard(
-            icon: Icons.analytics_outlined,
-            label: 'Analytics',
-            color: Colors.purple,
-            onTap: () => Navigator.pushNamed(context, '/analytics'),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildQuickActionCard(
-            icon: Icons.sensors,
-            label: 'Sensors',
-            color: Colors.orange,
-            onTap: () => Navigator.pushNamed(context, '/sensor'),
-          ),
-        ),
-      ],
+  void _toggleActuator(SensorViewModel viewModel, dynamic actuatorData, String actuatorName) async {
+    if (actuatorData == null) return;
+
+    // Create updated actuator data with toggled value
+    final updatedData = ActuatorData(
+      waterPump: actuatorName == 'waterPump' ? !actuatorData.waterPump : actuatorData.waterPump,
+      nutrientPump: actuatorName == 'nutrientPump' ? !actuatorData.nutrientPump : actuatorData.nutrientPump,
+      lights: actuatorName == 'lights' ? !actuatorData.lights : actuatorData.lights,
+      fan: actuatorName == 'fan' ? !actuatorData.fan : actuatorData.fan,
+      timestamp: DateTime.now(),
     );
+
+    // Send command to Firebase
+    await viewModel.sendActuatorCommand(updatedData);
+  }
+
+  Widget _buildStatusMetric({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: Colors.white, size: 18),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              color: Colors.white.withOpacity(0.8),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTime(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp); 
+
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} min ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else {
+      return '${difference.inDays}d ago';
+    }
   }
 
   Widget _buildQuickActionCard({
@@ -391,7 +629,7 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[200]!, width: 1.5),
+          border: Border.all(color: Theme.of(context).dividerColor!, width: 1.5),
           boxShadow: [
             BoxShadow(
               color: Colors.grey.withOpacity(0.1),
@@ -413,10 +651,10 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             const SizedBox(height: 12),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
               ),
             ),
           ],
@@ -437,21 +675,21 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
             time: '5 minutes ago',
             color: Colors.blue,
           ),
-          Divider(height: 1, color: Colors.grey[200]),
+          Divider(height: 1, color: Theme.of(context).dividerColor),
           _buildActivityItem(
             icon: Icons.thermostat,
             title: 'Temperature adjusted',
             time: '15 minutes ago',
             color: Colors.orange,
           ),
-          Divider(height: 1, color: Colors.grey[200]),
+          Divider(height: 1, color: Theme.of(context).dividerColor),
           _buildActivityItem(
             icon: Icons.warning_amber_rounded,
             title: 'pH level warning cleared',
             time: '1 hour ago',
             color: Colors.amber,
           ),
-          Divider(height: 1, color: Colors.grey[200]),
+          Divider(height: 1, color: Theme.of(context).dividerColor),
           _buildActivityItem(
             icon: Icons.lightbulb,
             title: 'Grow lights turned on',
@@ -481,76 +719,256 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       ),
       title: Text(
         title,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-        ),
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
       ),
       subtitle: Text(
         time,
-        style: TextStyle(
-          fontSize: 12,
-          color: Colors.grey[600],
-        ),
+        style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
       ),
-      trailing: Icon(Icons.chevron_right, color: Colors.grey[400], size: 20),
+      trailing: Icon(Icons.chevron_right, color: Theme.of(context).textTheme.bodySmall?.color, size: 20),
     );
   }
 
-  Widget _buildBottomNavigationBar() {
-    return Container(
-      decoration: BoxDecoration(
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
-            blurRadius: 10,
-            offset: const Offset(0, -3),
+  SensorStatus _getSensorStatus(double value, double min, double max) {
+    if (value < min * 0.9 || value > max * 1.1) {
+      return SensorStatus.critical;
+    } else if (value < min || value > max) {
+      return SensorStatus.warning;
+    }
+    return SensorStatus.normal;
+  }
+
+  Widget _buildCriticalControlsCard() {
+    return Consumer<SensorViewModel>(
+      builder: (context, viewModel, child) {
+        final actuatorData = viewModel.actuatorData;
+
+        return Card(
+          elevation: 3,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                // Mode Selector
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        viewModel.isAutomaticMode ? Icons.auto_mode : Icons.touch_app,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Current Mode',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Theme.of(context).textTheme.bodySmall?.color,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              viewModel.isAutomaticMode ? 'Automatic' : 'Manual',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).textTheme.bodyLarge?.color,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: viewModel.isAutomaticMode,
+                        onChanged: (value) async {
+                          await viewModel.setSystemMode(value);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Switched to ${value ? 'Automatic' : 'Manual'} mode',
+                                ),
+                                duration: const Duration(seconds: 2),
+                                backgroundColor: Colors.green[700],
+                              ),
+                            );
+                          }
+                        },
+                        activeColor: Colors.green[600],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Emergency Stop Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      _showEmergencyStopDialog(viewModel, actuatorData);
+                    },
+                    icon: const Icon(Icons.power_settings_new, size: 24),
+                    label: const Text(
+                      'EMERGENCY STOP',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red[700],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // All On/Off Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: actuatorData != null
+                            ? () => _toggleAllActuators(viewModel, actuatorData, true)
+                            : null,
+                        icon: const Icon(Icons.power, size: 20),
+                        label: const Text('All ON'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.green[700],
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: BorderSide(color: Colors.green[700]!, width: 2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: actuatorData != null
+                            ? () => _toggleAllActuators(viewModel, actuatorData, false)
+                            : null,
+                        icon: const Icon(Icons.power_off, size: 20),
+                        label: const Text('All OFF'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.grey[700],
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: BorderSide(color: Colors.grey[400]!, width: 2),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
-      child: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: Colors.white,
-        selectedItemColor: Colors.green[700],
-        unselectedItemColor: Colors.grey[400],
-        selectedFontSize: 12,
-        unselectedFontSize: 12,
-        currentIndex: 0,
-        onTap: (index) {
-          switch (index) {
-            case 0:
-              // Already on dashboard
-              break;
-            case 1:
-              Navigator.pushNamed(context, '/sensor');
-              break;
-            case 2:
-              Navigator.pushNamed(context, '/analytics');
-              break;
-            case 3:
-              Navigator.pushNamed(context, '/settings');
-              break;
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
+        );
+      },
+    );
+  }
+
+  void _showEmergencyStopDialog(SensorViewModel viewModel, dynamic actuatorData) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning, color: Colors.red[700], size: 32),
+            const SizedBox(width: 12),
+            const Text('Emergency Stop'),
+          ],
+        ),
+        content: const Text(
+          'This will immediately turn off all actuators. Are you sure?',
+          style: TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.sensors),
-            label: 'Sensors',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.analytics),
-            label: 'Analytics',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              if (actuatorData != null) {
+                _toggleAllActuators(viewModel, actuatorData, false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('EMERGENCY STOP - All systems halted!'),
+                    backgroundColor: Colors.red[700],
+                    duration: const Duration(seconds: 3),
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red[700],
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('STOP ALL'),
           ),
         ],
       ),
     );
+  }
+
+  void _toggleAllActuators(SensorViewModel viewModel, dynamic actuatorData, bool turnOn) async {
+    final updatedData = ActuatorData(
+      waterPump: turnOn,
+      nutrientPump: turnOn,
+      lights: turnOn,
+      fan: turnOn,
+      timestamp: DateTime.now(),
+    );
+
+    await viewModel.sendActuatorCommand(updatedData);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('All actuators turned ${turnOn ? 'ON' : 'OFF'}'),
+          backgroundColor: turnOn ? Colors.green[700] : Colors.grey[700],
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _speakSystemStatus() async {
+    final tts = TtsService();
+    final viewModel = context.read<SensorViewModel>();
+    
+    StringBuffer message = StringBuffer("System status report. ");
+    
+    final sensorData = viewModel.sensorData;
+    if (sensorData == null) {
+      message.write("No sensor data available.");
+    } else {
+      message.write("All systems operational. ");
+      message.write("Temperature is ${sensorData.temperature.toStringAsFixed(1)} degrees celsius. ");
+      message.write("pH level is ${sensorData.pH.toStringAsFixed(1)}. ");
+      message.write("Water level is ${sensorData.waterLevel.toStringAsFixed(0)} percent. ");
+      message.write("TDS is ${sensorData.tds.toStringAsFixed(0)} ppm. ");
+      message.write("Light intensity is ${sensorData.lightIntensity.toStringAsFixed(0)} lux. ");
+    }
+    
+    await tts.speak(message.toString());
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 /// SplashScreen displays app logo with animation and transitions to login after 3 seconds.
 class SplashScreen extends StatefulWidget {
@@ -15,6 +16,7 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   bool _isLoading = true;
+  String _firebaseStatus = 'Checking Firebase...';
 
   @override
   void initState() {
@@ -37,12 +39,19 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     // Slide animation for text: slides up from bottom
-    _slideAnimation = Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero).animate(
-      CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic),
-    );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _animationController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
 
     // Start animation
     _animationController.forward();
+
+    // Check Firebase status
+    _checkFirebase();
 
     // Hide loading indicator after 1.5 seconds
     Future.delayed(const Duration(milliseconds: 1500), () {
@@ -54,8 +63,21 @@ class _SplashScreenState extends State<SplashScreen>
     });
   }
 
+  Future<void> _checkFirebase() async {
+    try {
+      final app = Firebase.app();
+      setState(() {
+        _firebaseStatus = '✓ Firebase Connected: ${app.name}';
+      });
+    } catch (e) {
+      setState(() {
+        _firebaseStatus = '✗ Firebase Error: $e';
+      });
+    }
+  }
+
   void _navigateToAuth() {
-    Navigator.pushReplacementNamed(context, '/login');
+    Navigator.pushReplacementNamed(context, '/auth');
   }
 
   @override
@@ -73,10 +95,7 @@ class _SplashScreenState extends State<SplashScreen>
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Colors.white,
-              Colors.green[50]!,
-            ],
+            colors: [Colors.white, Colors.green[50]!],
           ),
         ),
         child: Center(
@@ -193,7 +212,9 @@ class _SplashScreenState extends State<SplashScreen>
                   width: 50,
                   height: 50,
                   child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.green[700]!),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Colors.green[700]!,
+                    ),
                     strokeWidth: 3,
                   ),
                 )

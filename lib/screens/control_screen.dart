@@ -1,4 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../widgets/main_layout.dart';
+import '../viewmodels/sensor_viewmodel.dart';
+import '../models/actuator_data.dart';
+import '../services/speech_service.dart';
+import '../services/tts_service.dart';
+import '../viewmodels/settings_viewmodel.dart';
 
 class ControlScreen extends StatefulWidget {
   const ControlScreen({super.key});
@@ -16,6 +23,11 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
   bool _nutrientPumpState = false;
   bool _lightsState = true;
 
+  // Speech recognition
+  final SpeechService _speechService = SpeechService();
+  bool _isListening = false;
+  String _lastCommand = '';
+
   @override
   void initState() {
     super.initState();
@@ -25,31 +37,118 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
     );
     _fadeAnimation = CurvedAnimation(parent: _animationController, curve: Curves.easeIn);
     _animationController.forward();
+    // Don't initialize speech service here - only when SR is enabled and user taps mic
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    _speechService.dispose();
     super.dispose();
+  }
+
+  Future<void> _toggleListening() async {
+    if (_isListening) {
+      await _speechService.stopListening();
+      setState(() => _isListening = false);
+    } else {
+      setState(() => _isListening = true);
+      await _speechService.startListening(
+        onResult: (text) {
+          setState(() => _isListening = false);
+          _processVoiceCommand(text);
+        },
+      );
+    }
+  }
+
+  void _processVoiceCommand(String command) {
+    setState(() => _lastCommand = command);
+    final tts = TtsService();
+
+    // Emergency stop
+    if (command.contains('emergency') && command.contains('stop')) {
+      _executeEmergencyStop();
+      tts.speak('Emergency stop activated');
+      return;
+    }
+
+    // Water pump control
+    if (command.contains('water') && command.contains('pump')) {
+      if (command.contains('turn on') || command.contains('start') || command.contains('on')) {
+        setState(() => _waterPumpState = true);
+        tts.speak('Water pump turned on');
+      } else if (command.contains('turn off') || command.contains('stop') || command.contains('off')) {
+        setState(() => _waterPumpState = false);
+        tts.speak('Water pump turned off');
+      }
+      return;
+    }
+
+    // Nutrient pump / Feeding cycle control
+    if ((command.contains('nutrient') || command.contains('feeding')) && 
+        (command.contains('pump') || command.contains('cycle'))) {
+      if (command.contains('start') || command.contains('turn on') || command.contains('on')) {
+        setState(() => _nutrientPumpState = true);
+        tts.speak('Feeding cycle started');
+      } else if (command.contains('end') || command.contains('stop') || command.contains('turn off') || command.contains('off')) {
+        setState(() => _nutrientPumpState = false);
+        tts.speak('Feeding cycle ended');
+      }
+      return;
+    }
+
+    // Light control
+    if (command.contains('light')) {
+      if (command.contains('increase') || command.contains('turn on') || command.contains('on')) {
+        setState(() => _lightsState = true);
+        tts.speak('Grow lights turned on');
+      } else if (command.contains('decrease') || command.contains('turn off') || command.contains('off')) {
+        setState(() => _lightsState = false);
+        tts.speak('Grow lights turned off');
+      }
+      return;
+    }
+
+    // Unknown command
+    tts.speak('Command not recognized');
+  }
+
+  void _executeEmergencyStop() {
+    setState(() {
+      _waterPumpState = false;
+      _nutrientPumpState = false;
+      _lightsState = false;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('All systems halted!'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[50],
-      appBar: AppBar(
-        backgroundColor: Colors.green[700],
-        elevation: 0,
-        title: const Text(
-          'Control Panel',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 20,
-            color: Colors.white,
-          ),
+    return MainLayout(
+      title: 'Control Panel',
+      currentIndex: 2,
+      actions: [
+        Consumer<SettingsViewModel>(
+          builder: (context, settings, _) {
+            if (!settings.srEnabled) return const SizedBox.shrink();
+            return IconButton(
+              icon: Icon(
+                _isListening ? Icons.mic : Icons.mic_none,
+                color: _isListening ? Colors.red : Colors.white,
+              ),
+              onPressed: _toggleListening,
+              tooltip: _isListening ? 'Stop listening' : 'Voice command',
+            );
+          },
         ),
-      ),
-      body: FadeTransition(
+      ],
+      child: FadeTransition(
         opacity: _fadeAnimation,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -82,10 +181,10 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 20,
         fontWeight: FontWeight.w700,
-        color: Colors.black87,
+        color: Theme.of(context).textTheme.bodyLarge?.color,
       ),
     );
   }
@@ -113,15 +212,7 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
               ),
             ),
             ElevatedButton(
-              onPressed: () {
-                // Placeholder for emergency stop action
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('All systems halted!'),
-                    backgroundColor: Colors.red,
-                  ),
-                );
-              },
+              onPressed: _executeEmergencyStop,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.red[700],
@@ -137,39 +228,64 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
 
   // New Widget: Manual Control Card
   Widget _buildManualControlCard() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            _buildControlSwitch(
-              'Water Pump',
-              _waterPumpState,
-                  (value) => setState(() => _waterPumpState = value),
-              Icons.water_damage_outlined,
-              Colors.blue,
+    return Consumer<SensorViewModel>(
+      builder: (context, viewModel, child) {
+        final actuatorData = viewModel.actuatorData;
+
+        if (actuatorData == null) {
+          return Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: const Padding(
+              padding: EdgeInsets.all(40),
+              child: Center(child: CircularProgressIndicator()),
             ),
-            const Divider(height: 24),
-            _buildControlSwitch(
-              'Nutrient Pump',
-              _nutrientPumpState,
-                  (value) => setState(() => _nutrientPumpState = value),
-              Icons.opacity,
-              Colors.purple,
+          );
+        }
+
+        return Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                _buildControlSwitch(
+                  'Water Pump',
+                  actuatorData.waterPump,
+                  (value) => _toggleActuator(viewModel, actuatorData, 'waterPump', value),
+                  Icons.water_damage_outlined,
+                  Colors.blue,
+                ),
+                const Divider(height: 24),
+                _buildControlSwitch(
+                  'Nutrient Pump',
+                  actuatorData.nutrientPump,
+                  (value) => _toggleActuator(viewModel, actuatorData, 'nutrientPump', value),
+                  Icons.opacity,
+                  Colors.purple,
+                ),
+                const Divider(height: 24),
+                _buildControlSwitch(
+                  'Grow Lights',
+                  actuatorData.lights,
+                  (value) => _toggleActuator(viewModel, actuatorData, 'lights', value),
+                  Icons.lightbulb_outline,
+                  Colors.amber,
+                ),
+                const Divider(height: 24),
+                _buildControlSwitch(
+                  'Fan',
+                  actuatorData.fan,
+                  (value) => _toggleActuator(viewModel, actuatorData, 'fan', value),
+                  Icons.air,
+                  Colors.teal,
+                ),
+              ],
             ),
-            const Divider(height: 24),
-            _buildControlSwitch(
-              'Grow Lights',
-              _lightsState,
-                  (value) => setState(() => _lightsState = value),
-              Icons.lightbulb_outline,
-              Colors.amber,
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -270,12 +386,37 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
             children: [
               Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
               const SizedBox(height: 2),
-              Text(subtitle, style: const TextStyle(color: Colors.black54, fontSize: 12)),
+              Text(subtitle, style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12)),
             ],
           ),
         ),
-        Text(time, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+        Text(time, style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12)),
       ],
     );
+  }
+
+  void _toggleActuator(SensorViewModel viewModel, ActuatorData actuatorData, String actuatorName, bool value) async {
+    // Create updated actuator data with new value
+    final updatedData = ActuatorData(
+      waterPump: actuatorName == 'waterPump' ? value : actuatorData.waterPump,
+      nutrientPump: actuatorName == 'nutrientPump' ? value : actuatorData.nutrientPump,
+      lights: actuatorName == 'lights' ? value : actuatorData.lights,
+      fan: actuatorName == 'fan' ? value : actuatorData.fan,
+      timestamp: DateTime.now(),
+    );
+
+    // Send command to Firebase
+    await viewModel.sendActuatorCommand(updatedData);
+    
+    // Show feedback
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${actuatorName == 'waterPump' ? 'Water Pump' : actuatorName == 'nutrientPump' ? 'Nutrient Pump' : actuatorName == 'lights' ? 'Lights' : 'Fan'} turned ${value ? 'ON' : 'OFF'}'),
+          duration: const Duration(seconds: 2),
+          backgroundColor: Colors.green[700],
+        ),
+      );
+    }
   }
 }

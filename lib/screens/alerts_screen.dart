@@ -111,16 +111,13 @@ class _AlertsScreenState extends State<AlertsScreen> with SingleTickerProviderSt
     }).toList();
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        backgroundColor: Colors.green[700],
         elevation: 0,
         title: const Text(
           'Alerts & Notifications',
           style: TextStyle(
             fontWeight: FontWeight.w700,
             fontSize: 20,
-            color: Colors.white,
           ),
         ),
       ),

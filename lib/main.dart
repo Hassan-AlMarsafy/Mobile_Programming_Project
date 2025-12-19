@@ -1,22 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'viewmodels/sensor_viewmodel.dart';
+import 'viewmodels/auth_viewmodel.dart';
+import 'viewmodels/theme_viewmodel.dart';
+import 'viewmodels/settings_viewmodel.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 import 'screens/auth_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/sensors/sensors_list_screen.dart';
+import 'screens/sensors/sensor_detail_screen.dart';
 import 'screens/control_screen.dart';
 import 'screens/analytics_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/alerts_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => SensorViewModel()),
+        ChangeNotifierProvider(create: (_) => AuthViewModel()),
+        ChangeNotifierProvider(create: (_) => ThemeViewModel()),
+        ChangeNotifierProvider(create: (_) => SettingsViewModel()),
       ],
       child: const SmartHydroponicApp(),
     ),
@@ -28,24 +41,33 @@ class SmartHydroponicApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'SMART Hydroponic',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      initialRoute: AppRoutes.splash,
-      routes: AppRoutes.routes,
+    return Consumer<ThemeViewModel>(
+      builder: (context, themeViewModel, child) {
+        return MaterialApp(
+          title: 'SMART Hydroponic',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeViewModel.themeMode,
+          initialRoute: '/splash',
+          routes: AppRoutes.routes,
+          onGenerateRoute: AppRoutes.onGenerateRoute,
+        );
+      },
     );
   }
 }
 
 // ------------------ Routes ------------------
 class AppRoutes {
-  static const splash = '/';
+  static const splash = '/splash';
+  static const auth = '/auth';
   static const login = '/login';
   static const register = '/register';
   static const forgot = '/forgot';
   static const dashboard = '/dashboard';
   static const sensor = '/sensor';
+  static const sensorDetail = '/sensor-detail';
   static const control = '/control';
   static const analytics = '/analytics';
   static const settings = '/settings';
@@ -53,6 +75,7 @@ class AppRoutes {
 
   static Map<String, WidgetBuilder> routes = {
     splash: (_) => const SplashScreen(),
+    auth: (_) => const AuthWrapper(), // Auth wrapper route
     login: (_) => const LoginScreen(),
     register: (_) => const RegisterScreen(),
     forgot: (_) => const ForgotPasswordScreen(),
@@ -63,9 +86,79 @@ class AppRoutes {
     settings: (_) => const SettingsScreen(),
     alerts: (_) => const AlertsScreen(),
   };
+
+  static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
+    if (settings.name == sensorDetail) {
+      final args = settings.arguments as Map<String, dynamic>;
+      return MaterialPageRoute(
+        builder: (_) => SensorDetailScreen(sensor: args),
+      );
+    }
+    return null;
+  }
 }
 
-// Theme is now centralized in lib/theme/app_theme.dart
-// All screens are imported from their respective files
-// This follows MVVM architecture and maintains clean separation of concerns
+// Auth Wrapper Widget
+class AuthWrapper extends StatefulWidget {
+  const AuthWrapper({super.key});
 
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  bool _initialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
+    // Initialize auth state
+    final authViewModel = Provider.of<AuthViewModel>(context, listen: false);
+    await authViewModel.initialize();
+
+    if (mounted) {
+      setState(() {
+        _initialized = true;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final authViewModel = Provider.of<AuthViewModel>(context);
+
+    if (!_initialized) {
+      // Show a loading screen while checking auth
+      return Scaffold(
+        backgroundColor: const Color(0xFFF8FFFE),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.green[700]!),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Checking authentication...',
+                style: TextStyle(color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // If user is logged in, go to dashboard
+    if (authViewModel.isLoggedIn) {
+      return const DashboardScreen();
+    } else {
+      // If not logged in, go to login screen
+      return const LoginScreen();
+    }
+  }
+}
