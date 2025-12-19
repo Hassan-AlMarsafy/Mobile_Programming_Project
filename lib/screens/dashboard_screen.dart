@@ -729,7 +729,6 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-<<<<<<< HEAD
   SensorStatus _getSensorStatus(double value, double min, double max) {
     if (value < min * 0.9 || value > max * 1.1) {
       return SensorStatus.critical;
@@ -951,34 +950,25 @@ class _DashboardScreenState extends State<DashboardScreen>
       );
     }
   }
-}
-=======
+
   Future<void> _speakSystemStatus() async {
     final tts = TtsService();
     final viewModel = context.read<SensorViewModel>();
     
     StringBuffer message = StringBuffer("System status report. ");
     
-    if (viewModel.sensors.isEmpty) {
+    final sensorData = viewModel.sensorData;
+    if (sensorData == null) {
       message.write("No sensor data available.");
     } else {
       message.write("All systems operational. ");
-      for (var sensor in viewModel.sensors) {
-        message.write("${sensor.name} is ${sensor.value} ");
-        // Add unit based on sensor type
-        if (sensor.name.toLowerCase().contains('temperature')) {
-          message.write("degrees celsius. ");
-        } else if (sensor.name.toLowerCase().contains('humidity')) {
-          message.write("percent. ");
-        } else if (sensor.name.toLowerCase().contains('water')) {
-          message.write("percent. ");
-        } else {
-          message.write(". ");
-        }
-      }
+      message.write("Temperature is ${sensorData.temperature.toStringAsFixed(1)} degrees celsius. ");
+      message.write("pH level is ${sensorData.pH.toStringAsFixed(1)}. ");
+      message.write("Water level is ${sensorData.waterLevel.toStringAsFixed(0)} percent. ");
+      message.write("TDS is ${sensorData.tds.toStringAsFixed(0)} ppm. ");
+      message.write("Light intensity is ${sensorData.lightIntensity.toStringAsFixed(0)} lux. ");
     }
     
     await tts.speak(message.toString());
   }
 }
->>>>>>> origin/TTS-SR
