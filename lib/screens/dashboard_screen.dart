@@ -664,7 +664,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Theme.of(context).dividerColor!, width: 1.5),
+          border: Border.all(color: Theme.of(context).dividerColor, width: 1.5),
           boxShadow: [
             BoxShadow(
               color: Colors.grey.withOpacity(0.1),
