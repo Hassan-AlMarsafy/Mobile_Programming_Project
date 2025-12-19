@@ -355,10 +355,7 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
         subtitle: const Text('Set timers for pumps and lights'),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
         onTap: () {
-          // Placeholder for navigating to a detailed scheduling screen
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Scheduling screen coming soon!')),
-          );
+          Navigator.pushNamed(context, '/watering-schedule');
         },
       ),
     );

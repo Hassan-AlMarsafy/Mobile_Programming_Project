@@ -1,21 +1,5 @@
 import 'package:flutter/material.dart';
-
-// A model for our placeholder alerts
-class Alert {
-  final String title;
-  final String description;
-  final String time;
-  final AlertSeverity severity;
-  bool isAcknowledged;
-
-  Alert({
-    required this.title,
-    required this.description,
-    required this.time,
-    required this.severity,
-    this.isAcknowledged = false,
-  });
-}
+import '../services/database_service.dart';
 
 // Enum to define the severity of an alert
 enum AlertSeverity { critical, warning, info }
@@ -27,41 +11,14 @@ class AlertsScreen extends StatefulWidget {
   State<AlertsScreen> createState() => _AlertsScreenState();
 }
 
-class _AlertsScreenState extends State<AlertsScreen> with SingleTickerProviderStateMixin {
+class _AlertsScreenState extends State<AlertsScreen>
+    with SingleTickerProviderStateMixin {
+  final DatabaseService _databaseService = DatabaseService();
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
-  // --- Placeholder Data ---
-  final List<Alert> _alerts = [
-    Alert(
-      title: 'Critical: pH Level Too Low',
-      description: 'The pH level has dropped to 5.2, which is outside the optimal range.',
-      time: '2 mins ago',
-      severity: AlertSeverity.critical,
-    ),
-    Alert(
-      title: 'Warning: Water Temperature High',
-      description: 'Water temperature is currently at 28.5°C. Consider cooling measures.',
-      time: '15 mins ago',
-      severity: AlertSeverity.warning,
-      isAcknowledged: true,
-    ),
-    Alert(
-      title: 'Nutrient Solution Mixed',
-      description: 'The nutrient pump successfully completed its scheduled cycle.',
-      time: '1 hour ago',
-      severity: AlertSeverity.info,
-      isAcknowledged: true,
-    ),
-    Alert(
-      title: 'Warning: Humidity Fluctuation',
-      description: 'Humidity dropped by 15% in the last hour.',
-      time: '3 hours ago',
-      severity: AlertSeverity.warning,
-    ),
-  ];
-
-  // State for filtering
+  List<Map<String, dynamic>> _alerts = [];
+  bool _loading = true;
   AlertSeverity? _selectedFilter;
 
   @override
@@ -71,8 +28,19 @@ class _AlertsScreenState extends State<AlertsScreen> with SingleTickerProviderSt
       vsync: this,
       duration: const Duration(milliseconds: 600),
     );
-    _fadeAnimation = CurvedAnimation(parent: _animationController, curve: Curves.easeIn);
+    _fadeAnimation =
+        CurvedAnimation(parent: _animationController, curve: Curves.easeIn);
     _animationController.forward();
+    _loadAlerts();
+  }
+
+  Future<void> _loadAlerts() async {
+    setState(() => _loading = true);
+    final alerts = await _databaseService.getAlertHistory(limit: 50);
+    setState(() {
+      _alerts = alerts;
+      _loading = false;
+    });
   }
 
   @override
@@ -81,7 +49,17 @@ class _AlertsScreenState extends State<AlertsScreen> with SingleTickerProviderSt
     super.dispose();
   }
 
-  // --- Helper Methods ---
+  AlertSeverity _parseSeverity(String? severity) {
+    switch (severity?.toLowerCase()) {
+      case 'critical':
+        return AlertSeverity.critical;
+      case 'warning':
+        return AlertSeverity.warning;
+      default:
+        return AlertSeverity.info;
+    }
+  }
+
   IconData _getIconForSeverity(AlertSeverity severity) {
     switch (severity) {
       case AlertSeverity.critical:
@@ -104,10 +82,27 @@ class _AlertsScreenState extends State<AlertsScreen> with SingleTickerProviderSt
     }
   }
 
+  String _formatTime(int timestamp) {
+    final dateTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} mins ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours} hours ago';
+    } else {
+      return '${difference.inDays} days ago';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final filteredAlerts = _alerts.where((alert) {
-      return _selectedFilter == null || alert.severity == _selectedFilter;
+      if (_selectedFilter == null) return true;
+      return _parseSeverity(alert['severity'] as String?) == _selectedFilter;
     }).toList();
 
     return Scaffold(
@@ -115,28 +110,35 @@ class _AlertsScreenState extends State<AlertsScreen> with SingleTickerProviderSt
         elevation: 0,
         title: const Text(
           'Alerts & Notifications',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 20,
-          ),
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadAlerts,
+          ),
+        ],
       ),
       body: FadeTransition(
         opacity: _fadeAnimation,
         child: Column(
           children: [
-            _buildFilterBar(), // Filter UI
+            _buildFilterBar(),
             Expanded(
-              child: filteredAlerts.isEmpty
-                  ? _buildEmptyState()
-                  : ListView.builder(
-                padding: const EdgeInsets.all(12),
-                itemCount: filteredAlerts.length,
-                itemBuilder: (context, index) {
-                  final alert = filteredAlerts[index];
-                  return _buildAlertCard(alert);
-                },
-              ),
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : filteredAlerts.isEmpty
+                      ? _buildEmptyState()
+                      : RefreshIndicator(
+                          onRefresh: _loadAlerts,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.all(12),
+                            itemCount: filteredAlerts.length,
+                            itemBuilder: (context, index) {
+                              return _buildAlertCard(filteredAlerts[index]);
+                            },
+                          ),
+                        ),
             ),
           ],
         ),
@@ -144,7 +146,6 @@ class _AlertsScreenState extends State<AlertsScreen> with SingleTickerProviderSt
     );
   }
 
-  // New Widget: Filtering Bar
   Widget _buildFilterBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -189,20 +190,22 @@ class _AlertsScreenState extends State<AlertsScreen> with SingleTickerProviderSt
     );
   }
 
-  // New Widget: Alert Card
-  Widget _buildAlertCard(Alert alert) {
-    final cardColor = alert.isAcknowledged ? Colors.white : Colors.green[50];
+  Widget _buildAlertCard(Map<String, dynamic> alert) {
+    final severity = _parseSeverity(alert['severity'] as String?);
+    final sensorType = alert['sensor_type'] as String? ?? 'System';
+    final message = alert['message'] as String? ?? 'No details';
+    final timestamp = alert['timestamp'] as int? ?? 0;
+
     return Card(
       elevation: 2,
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: _getColorForSeverity(alert.severity).withOpacity(0.8),
+          color: _getColorForSeverity(severity).withOpacity(0.8),
           width: 1.5,
         ),
       ),
-      color: cardColor,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -211,14 +214,14 @@ class _AlertsScreenState extends State<AlertsScreen> with SingleTickerProviderSt
             Row(
               children: [
                 Icon(
-                  _getIconForSeverity(alert.severity),
-                  color: _getColorForSeverity(alert.severity),
+                  _getIconForSeverity(severity),
+                  color: _getColorForSeverity(severity),
                   size: 28,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    alert.title,
+                    sensorType,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -226,7 +229,7 @@ class _AlertsScreenState extends State<AlertsScreen> with SingleTickerProviderSt
                   ),
                 ),
                 Text(
-                  alert.time,
+                  _formatTime(timestamp),
                   style: const TextStyle(color: Colors.grey, fontSize: 12),
                 ),
               ],
@@ -235,61 +238,36 @@ class _AlertsScreenState extends State<AlertsScreen> with SingleTickerProviderSt
             Padding(
               padding: const EdgeInsets.only(left: 40),
               child: Text(
-                alert.description,
+                message,
                 style: const TextStyle(color: Colors.black54, fontSize: 14),
               ),
             ),
-            if (!alert.isAcknowledged) ...[
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.only(left: 40),
-                child: Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: () {
-                      setState(() {
-                        alert.isAcknowledged = true;
-                      });
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Alert "${alert.title}" acknowledged.'),
-                          backgroundColor: Colors.green[700],
-                        ),
-                      );
-                    },
-                    child: Text(
-                      'Acknowledge',
-                      style: TextStyle(
-                        color: Colors.green[800],
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
       ),
     );
   }
 
-  // New Widget: Empty State
   Widget _buildEmptyState() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.notifications_active_outlined, size: 80, color: Colors.grey[400]),
+          Icon(Icons.notifications_active_outlined,
+              size: 80, color: Colors.grey[400]),
           const SizedBox(height: 16),
           Text(
-            'No Alerts Here',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey[600]),
+            'No Alerts Yet',
+            style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[600]),
           ),
           const SizedBox(height: 8),
           Text(
-            'There are no alerts matching your filter.',
+            'Alerts will appear when sensor values go out of range',
             style: TextStyle(color: Colors.grey[500]),
+            textAlign: TextAlign.center,
           ),
         ],
       ),

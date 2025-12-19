@@ -578,7 +578,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                             ),
                             Divider(height: 1, color: Colors.grey[200]),
                             Consumer<SettingsViewModel>(
-                              builder: (context, settings, _) => _buildSwitchTile(
+                              builder: (context, settings, _) =>
+                                  _buildSwitchTile(
                                 icon: Icons.volume_up,
                                 title: 'Text-to-Speech',
                                 subtitle: 'Enable voice announcements',
@@ -589,7 +590,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                             ),
                             Divider(height: 1, color: Colors.grey[200]),
                             Consumer<SettingsViewModel>(
-                              builder: (context, settings, _) => _buildSwitchTile(
+                              builder: (context, settings, _) =>
+                                  _buildSwitchTile(
                                 icon: Icons.mic,
                                 title: 'Speech Recognition',
                                 subtitle: 'Enable voice commands',
@@ -665,6 +667,8 @@ class _SettingsScreenState extends State<SettingsScreen>
                               onTap: () =>
                                   _showSnackBar('Watering schedule settings'),
                             ),
+                            Divider(height: 1, color: Colors.grey[200]),
+                            _buildThresholdProfilesTile(),
                           ],
                         ),
                       ),
@@ -839,6 +843,36 @@ class _SettingsScreenState extends State<SettingsScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildThresholdProfilesTile() {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.green.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.tune, color: Colors.green, size: 24),
+      ),
+      title: const Text(
+        'Threshold Profiles',
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      subtitle: Text(
+        'Manage sensor thresholds for different crops',
+        style: TextStyle(
+          fontSize: 13,
+          color: Theme.of(context).textTheme.bodySmall?.color,
+        ),
+      ),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+      onTap: () => Navigator.pushNamed(context, '/threshold-profiles'),
     );
   }
 
@@ -2507,6 +2541,7 @@ class _SettingsScreenState extends State<SettingsScreen>
       _showSnackBar('Failed to save calibration');
     }
   }
+
   void _showTtsDialog() {
     final tts = TtsService();
     double speechRate = 0.5;
@@ -2584,8 +2619,7 @@ class _SettingsScreenState extends State<SettingsScreen>
                 child: ElevatedButton.icon(
                   onPressed: () async {
                     await tts.speak(
-                      "Hello, this is your Smart Hydroponic system speaking. All sensors are functioning normally."
-                    );
+                        "Hello, this is your Smart Hydroponic system speaking. All sensors are functioning normally.");
                   },
                   icon: const Icon(Icons.play_arrow),
                   label: const Text('Test Voice'),

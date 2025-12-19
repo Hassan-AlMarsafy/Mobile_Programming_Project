@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:hydroponic_app/theme/app_theme.dart';
+import 'package:path_provider/path_provider.dart';
 import '../services/database_service.dart';
 import '../widgets/main_layout.dart';
 
@@ -18,6 +21,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   bool _loading = true;
   int _selectedDays = 7;
   String _selectedSensor = 'temperature';
+  bool _showScrollHint = true;
+  final ScrollController _chipScrollController = ScrollController();
 
   final Map<String, String> _sensorLabels = {
     'temperature': 'Temperature (°C)',
@@ -39,6 +44,21 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   void initState() {
     super.initState();
     _loadData();
+    _chipScrollController.addListener(_onChipScroll);
+  }
+
+  void _onChipScroll() {
+    final maxScroll = _chipScrollController.position.maxScrollExtent;
+    final currentScroll = _chipScrollController.position.pixels;
+    setState(() {
+      _showScrollHint = currentScroll < maxScroll - 10;
+    });
+  }
+
+  @override
+  void dispose() {
+    _chipScrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
@@ -56,12 +76,76 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     });
   }
 
+  Future<void> _exportData() async {
+    if (_sensorHistory.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No data to export')),
+      );
+      return;
+    }
+
+    // Build CSV content
+    final buffer = StringBuffer();
+    buffer.writeln('Timestamp,Temperature,pH,Water Level,TDS,Light Intensity');
+
+    for (final row in _sensorHistory) {
+      final timestamp =
+          DateTime.fromMillisecondsSinceEpoch(row['timestamp'] as int);
+      buffer.writeln('${timestamp.toIso8601String()},'
+          '${row['temperature']},'
+          '${row['ph']},'
+          '${row['water_level']},'
+          '${row['tds']},'
+          '${row['light_intensity']}');
+    }
+
+    try {
+      // Get Downloads directory
+      Directory? directory;
+      if (Platform.isAndroid) {
+        directory = Directory('/storage/emulated/0/Download');
+      } else {
+        directory = await getDownloadsDirectory();
+      }
+
+      if (directory == null) {
+        throw Exception('Could not access Downloads folder');
+      }
+
+      final fileName =
+          'hydroponic_data_${DateTime.now().millisecondsSinceEpoch}.csv';
+      final file = File('${directory.path}/$fileName');
+      await file.writeAsString(buffer.toString());
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Saved to Downloads: $fileName'),
+            backgroundColor: Colors.green[700],
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export failed: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MainLayout(
       title: 'Analytics & History',
       currentIndex: 3,
       actions: [
+        IconButton(
+          icon: const Icon(Icons.share, color: Colors.white),
+          tooltip: 'Export Data',
+          onPressed: _exportData,
+        ),
         PopupMenuButton<int>(
           icon: const Icon(Icons.calendar_today, color: Colors.white),
           tooltip: 'Select Time Range',
@@ -93,8 +177,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     _buildTrendChart(),
                     const SizedBox(height: 24),
                     _buildStatisticsCards(),
-                    const SizedBox(height: 24),
-                    _buildDataPointsInfo(),
                   ],
                 ),
               ),
@@ -106,13 +188,21 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.green[50],
+        color: Theme.of(context).brightness == Brightness.dark
+            ? AppTheme.darkPrimaryColor
+            : AppTheme.primaryColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.green[200]!),
+        border: Border.all(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppTheme.darkPrimaryColor
+                : AppTheme.primaryColor),
       ),
       child: Row(
         children: [
-          Icon(Icons.analytics, color: Colors.green[700]),
+          Icon(Icons.analytics,
+              color: Theme.of(context).brightness == Brightness.light
+                  ? Colors.white
+                  : AppTheme.primaryColor),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -122,12 +212,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   'Viewing: Last $_selectedDays day${_selectedDays > 1 ? 's' : ''}',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: Colors.green[700],
+                    color: Theme.of(context).brightness == Brightness.light
+                        ? Colors.white
+                        : AppTheme.primaryColor,
                   ),
-                ),
-                Text(
-                  'Data from SQLite local database',
-                  style: TextStyle(fontSize: 12, color: Colors.green[600]),
                 ),
               ],
             ),
@@ -138,30 +226,66 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Widget _buildSensorSelector() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: _sensorLabels.entries.map((entry) {
-          final isSelected = _selectedSensor == entry.key;
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ChoiceChip(
-              label: Text(entry.value.split(' ').first),
-              selected: isSelected,
-              onSelected: (selected) {
-                if (selected) {
-                  setState(() => _selectedSensor = entry.key);
-                }
-              },
-              selectedColor: _sensorColors[entry.key]?.withOpacity(0.3),
-              labelStyle: TextStyle(
-                color: isSelected ? _sensorColors[entry.key] : Colors.grey[600],
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+    return Stack(
+      children: [
+        SingleChildScrollView(
+          controller: _chipScrollController,
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              ..._sensorLabels.entries.map((entry) {
+                final isSelected = _selectedSensor == entry.key;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(entry.value.split(' ').first),
+                    selected: isSelected,
+                    onSelected: (selected) {
+                      if (selected) {
+                        setState(() => _selectedSensor = entry.key);
+                      }
+                    },
+                    selectedColor: _sensorColors[entry.key]?.withOpacity(0.3),
+                    labelStyle: TextStyle(
+                      color: isSelected
+                          ? _sensorColors[entry.key]
+                          : Colors.grey[600],
+                      fontWeight:
+                          isSelected ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(width: 20),
+            ],
+          ),
+        ),
+        // Scroll indicator on the right (hides when scrolled to end)
+        if (_showScrollHint)
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            child: Container(
+              padding: const EdgeInsets.only(left: 16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    Theme.of(context).scaffoldBackgroundColor.withOpacity(0),
+                    Theme.of(context).scaffoldBackgroundColor,
+                  ],
+                ),
+              ),
+              child: Icon(
+                Icons.chevron_right,
+                color: Colors.grey[400],
+                size: 20,
               ),
             ),
-          );
-        }).toList(),
-      ),
+          ),
+      ],
     );
   }
 
@@ -223,11 +347,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               _sensorLabels[_selectedSensor] ?? '',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 8),
-            Text(
-              '${_sensorHistory.length} data points',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-            ),
             const SizedBox(height: 16),
             SizedBox(
               height: 200,
@@ -269,6 +388,21 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     ),
                   ),
                   borderData: FlBorderData(show: false),
+                  lineTouchData: LineTouchData(
+                    touchTooltipData: LineTouchTooltipData(
+                      getTooltipItems: (touchedSpots) {
+                        return touchedSpots.map((spot) {
+                          return LineTooltipItem(
+                            spot.y.toStringAsFixed(2),
+                            TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          );
+                        }).toList();
+                      },
+                    ),
+                  ),
                   minY: minY - padding,
                   maxY: maxY + padding,
                   lineBarsData: [
@@ -364,34 +498,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
             const SizedBox(height: 8),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: color,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDataPointsInfo() {
-    final dataPoints = _statistics['data_points'] as int? ?? 0;
-    return Card(
-      color: Colors.grey[100],
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.storage, size: 16, color: Colors.grey[600]),
-            const SizedBox(width: 8),
-            Text(
-              '$dataPoints data points stored locally',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
           ],
         ),

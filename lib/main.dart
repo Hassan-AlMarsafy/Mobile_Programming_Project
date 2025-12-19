@@ -17,6 +17,7 @@ import 'screens/analytics_screen.dart';
 import 'screens/threshold_profiles_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/alerts_screen.dart';
+import 'screens/watering_schedule_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -72,6 +73,7 @@ class AppRoutes {
   static const control = '/control';
   static const analytics = '/analytics';
   static const thresholdProfiles = '/threshold-profiles';
+  static const wateringSchedule = '/watering-schedule';
   static const settings = '/settings';
   static const alerts = '/alerts';
 
@@ -86,6 +88,7 @@ class AppRoutes {
     control: (_) => const ControlScreen(),
     analytics: (_) => const AnalyticsScreen(),
     thresholdProfiles: (_) => const ThresholdProfilesScreen(),
+    wateringSchedule: (_) => const WateringScheduleScreen(),
     settings: (_) => const SettingsScreen(),
     alerts: (_) => const AlertsScreen(),
   };
