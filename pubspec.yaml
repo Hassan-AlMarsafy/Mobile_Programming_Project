@@ -45,6 +45,9 @@ dependencies:
   flutter_tts: ^4.2.0
   shared_preferences: ^2.3.3
   speech_to_text: ^7.0.0
+  sqflite: ^2.3.3+1
+  path: ^1.9.0
+  connectivity_plus: ^6.0.5
 
 dev_dependencies:
   flutter_test:
