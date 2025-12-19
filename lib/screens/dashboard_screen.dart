@@ -7,6 +7,7 @@ import '../widgets/sensor_tile.dart';
 import '../widgets/main_layout.dart';
 import '../models/actuator_data.dart';
 import '../services/tts_service.dart';
+import '../services/firestore_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -551,17 +552,51 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _toggleActuator(SensorViewModel viewModel, dynamic actuatorData, String actuatorName) async {
     if (actuatorData == null) return;
 
+    // Determine new state
+    bool newState;
+    String displayName;
+    switch (actuatorName) {
+      case 'waterPump':
+        newState = !actuatorData.waterPump;
+        displayName = 'Water Pump';
+        break;
+      case 'nutrientPump':
+        newState = !actuatorData.nutrientPump;
+        displayName = 'Nutrient Pump';
+        break;
+      case 'lights':
+        newState = !actuatorData.lights;
+        displayName = 'Grow Lights';
+        break;
+      case 'fan':
+        newState = !actuatorData.fan;
+        displayName = 'Ventilation Fan';
+        break;
+      default:
+        return;
+    }
+
     // Create updated actuator data with toggled value
     final updatedData = ActuatorData(
-      waterPump: actuatorName == 'waterPump' ? !actuatorData.waterPump : actuatorData.waterPump,
-      nutrientPump: actuatorName == 'nutrientPump' ? !actuatorData.nutrientPump : actuatorData.nutrientPump,
-      lights: actuatorName == 'lights' ? !actuatorData.lights : actuatorData.lights,
-      fan: actuatorName == 'fan' ? !actuatorData.fan : actuatorData.fan,
+      waterPump: actuatorName == 'waterPump' ? newState : actuatorData.waterPump,
+      nutrientPump: actuatorName == 'nutrientPump' ? newState : actuatorData.nutrientPump,
+      lights: actuatorName == 'lights' ? newState : actuatorData.lights,
+      fan: actuatorName == 'fan' ? newState : actuatorData.fan,
       timestamp: DateTime.now(),
     );
 
     // Send command to Firebase
     await viewModel.sendActuatorCommand(updatedData);
+
+    // Log the activity
+    final firestoreService = FirestoreService();
+    await firestoreService.logActivity(
+      title: '$displayName ${newState ? "activated" : "deactivated"}',
+      description: 'Manual control: $displayName turned ${newState ? "ON" : "OFF"}',
+      type: actuatorName == 'waterPump' ? 'water_pump' :
+            actuatorName == 'nutrientPump' ? 'nutrient_pump' :
+            actuatorName == 'lights' ? 'lights' : 'fan',
+    );
   }
 
   Widget _buildStatusMetric({
@@ -664,41 +699,118 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Widget _buildRecentActivityList() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Column(
-        children: [
-          _buildActivityItem(
-            icon: Icons.water_drop,
-            title: 'Water pump activated',
-            time: '5 minutes ago',
-            color: Colors.blue,
+    return Consumer<SensorViewModel>(
+      builder: (context, viewModel, child) {
+        final activities = viewModel.activityLogs.take(5).toList();
+
+        if (activities.isEmpty) {
+          return Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: const Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(
+                child: Column(
+                  children: [
+                    Icon(Icons.history, size: 48, color: Colors.grey),
+                    SizedBox(height: 12),
+                    Text(
+                      'No recent activity',
+                      style: TextStyle(color: Colors.grey, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        return Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: Column(
+            children: activities.asMap().entries.map((entry) {
+              final index = entry.key;
+              final activity = entry.value;
+              final isLast = index == activities.length - 1;
+
+              return Column(
+                children: [
+                  _buildActivityItem(
+                    icon: _getActivityIcon(activity.type),
+                    title: activity.title,
+                    time: _formatActivityTime(activity.timestamp),
+                    color: _getActivityColor(activity.type),
+                  ),
+                  if (!isLast) Divider(height: 1, color: Theme.of(context).dividerColor),
+                ],
+              );
+            }).toList(),
           ),
-          Divider(height: 1, color: Theme.of(context).dividerColor),
-          _buildActivityItem(
-            icon: Icons.thermostat,
-            title: 'Temperature adjusted',
-            time: '15 minutes ago',
-            color: Colors.orange,
-          ),
-          Divider(height: 1, color: Theme.of(context).dividerColor),
-          _buildActivityItem(
-            icon: Icons.warning_amber_rounded,
-            title: 'pH level warning cleared',
-            time: '1 hour ago',
-            color: Colors.amber,
-          ),
-          Divider(height: 1, color: Theme.of(context).dividerColor),
-          _buildActivityItem(
-            icon: Icons.lightbulb,
-            title: 'Grow lights turned on',
-            time: '2 hours ago',
-            color: Colors.yellow[700]!,
-          ),
-        ],
-      ),
+        );
+      },
     );
+  }
+
+  IconData _getActivityIcon(String type) {
+    switch (type) {
+      case 'water_pump':
+        return Icons.water_drop;
+      case 'nutrient_pump':
+        return Icons.science;
+      case 'lights':
+        return Icons.lightbulb;
+      case 'fan':
+        return Icons.air;
+      case 'temperature':
+        return Icons.thermostat;
+      case 'ph':
+        return Icons.water;
+      case 'emergency':
+        return Icons.warning;
+      case 'system':
+        return Icons.settings;
+      default:
+        return Icons.info;
+    }
+  }
+
+  Color _getActivityColor(String type) {
+    switch (type) {
+      case 'water_pump':
+        return Colors.blue;
+      case 'nutrient_pump':
+        return Colors.purple;
+      case 'lights':
+        return Colors.amber;
+      case 'fan':
+        return Colors.cyan;
+      case 'temperature':
+        return Colors.orange;
+      case 'ph':
+        return Colors.teal;
+      case 'emergency':
+        return Colors.red;
+      case 'system':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _formatActivityTime(DateTime timestamp) {
+    final now = DateTime.now();
+    final difference = now.difference(timestamp);
+
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes} min ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours} hours ago';
+    } else {
+      return '${difference.inDays} days ago';
+    }
   }
 
   Widget _buildActivityItem({
@@ -725,7 +837,6 @@ class _DashboardScreenState extends State<DashboardScreen>
         time,
         style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
       ),
-      trailing: Icon(Icons.chevron_right, color: Theme.of(context).textTheme.bodySmall?.color, size: 20),
     );
   }
 
@@ -887,7 +998,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   void _showEmergencyStopDialog(SensorViewModel viewModel, dynamic actuatorData) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Row(
           children: [
             Icon(Icons.warning, color: Colors.red[700], size: 32),
@@ -901,21 +1012,41 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
+            onPressed: () async {
+              Navigator.pop(dialogContext);
               if (actuatorData != null) {
-                _toggleAllActuators(viewModel, actuatorData, false);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('EMERGENCY STOP - All systems halted!'),
-                    backgroundColor: Colors.red[700],
-                    duration: const Duration(seconds: 3),
-                  ),
+                // Turn off all actuators
+                final updatedData = ActuatorData(
+                  waterPump: false,
+                  nutrientPump: false,
+                  lights: false,
+                  fan: false,
+                  timestamp: DateTime.now(),
                 );
+
+                await viewModel.sendActuatorCommand(updatedData);
+
+                // Log the activity with emergency type (red)
+                final firestoreService = FirestoreService();
+                await firestoreService.logActivity(
+                  title: 'EMERGENCY STOP',
+                  description: 'All systems halted - Water Pump, Nutrient Pump, Lights, and Fan turned OFF',
+                  type: 'emergency',
+                );
+
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('EMERGENCY STOP - All systems halted!'),
+                      backgroundColor: Colors.red[700],
+                      duration: const Duration(seconds: 3),
+                    ),
+                  );
+                }
               }
             },
             style: ElevatedButton.styleFrom(
@@ -940,15 +1071,13 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     await viewModel.sendActuatorCommand(updatedData);
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('All actuators turned ${turnOn ? 'ON' : 'OFF'}'),
-          backgroundColor: turnOn ? Colors.green[700] : Colors.grey[700],
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
+    // Log the activity
+    final firestoreService = FirestoreService();
+    await firestoreService.logActivity(
+      title: turnOn ? 'All actuators activated' : 'All actuators deactivated',
+      description: 'Quick control: All systems turned ${turnOn ? "ON" : "OFF"}',
+      type: 'system',
+    );
   }
 
   Future<void> _speakSystemStatus() async {

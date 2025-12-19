@@ -6,6 +6,7 @@ import '../models/sensor_calibration.dart';
 import '../models/user.dart';
 import '../models/notification_preferences.dart';
 import '../models/watering_schedule.dart';
+import '../models/activity_log.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -37,10 +38,8 @@ class FirestoreService {
   // Get current sensor data (one-time fetch)
   Future<SensorData?> getCurrentSensorData() async {
     try {
-      final snapshot = await _firestore
-          .collection('sensors')
-          .doc('current')
-          .get();
+      final snapshot =
+          await _firestore.collection('sensors').doc('current').get();
       if (snapshot.exists && snapshot.data() != null) {
         return SensorData.fromJson(snapshot.data()!);
       }
@@ -53,10 +52,8 @@ class FirestoreService {
   // Get current actuator data (one-time fetch)
   Future<ActuatorData?> getCurrentActuatorData() async {
     try {
-      final snapshot = await _firestore
-          .collection('actuators')
-          .doc('current')
-          .get();
+      final snapshot =
+          await _firestore.collection('actuators').doc('current').get();
       if (snapshot.exists && snapshot.data() != null) {
         return ActuatorData.fromJson(snapshot.data()!);
       }
@@ -97,10 +94,8 @@ class FirestoreService {
   // Get current system mode (one-time fetch)
   Future<bool> getSystemMode() async {
     try {
-      final snapshot = await _firestore
-          .collection('system')
-          .doc('settings')
-          .get();
+      final snapshot =
+          await _firestore.collection('system').doc('settings').get();
       if (snapshot.exists && snapshot.data() != null) {
         return snapshot.data()!['isAutomaticMode'] as bool? ?? false;
       }
@@ -114,10 +109,7 @@ class FirestoreService {
   Future<void> setSystemMode(bool isAutomaticMode) async {
     try {
       print('Setting system mode to: $isAutomaticMode');
-      await _firestore
-          .collection('system')
-          .doc('settings')
-          .set({
+      await _firestore.collection('system').doc('settings').set({
         'isAutomaticMode': isAutomaticMode,
         'lastUpdated': DateTime.now().millisecondsSinceEpoch,
       }, SetOptions(merge: true));
@@ -138,7 +130,7 @@ class FirestoreService {
           .collection('settings')
           .doc('thresholds')
           .get();
-      
+
       if (snapshot.exists && snapshot.data() != null) {
         return SensorThresholds.fromJson(snapshot.data()!);
       }
@@ -159,11 +151,8 @@ class FirestoreService {
           .collection('settings')
           .doc('thresholds')
           .set(thresholds.toJson());
-      
-      return {
-        'success': true,
-        'message': 'Thresholds updated successfully'
-      };
+
+      return {'success': true, 'message': 'Thresholds updated successfully'};
     } on FirebaseException catch (e) {
       String errorMessage = 'Firebase error: ';
       switch (e.code) {
@@ -179,11 +168,7 @@ class FirestoreService {
         default:
           errorMessage += '${e.message}';
       }
-      return {
-        'success': false,
-        'message': errorMessage,
-        'error': e.toString()
-      };
+      return {'success': false, 'message': errorMessage, 'error': e.toString()};
     } catch (e) {
       return {
         'success': false,
@@ -220,7 +205,7 @@ class FirestoreService {
           .collection('settings')
           .doc('calibration')
           .get();
-      
+
       if (snapshot.exists && snapshot.data() != null) {
         return SystemCalibration.fromJson(snapshot.data()!);
       }
@@ -241,11 +226,8 @@ class FirestoreService {
           .collection('settings')
           .doc('calibration')
           .set(calibration.toJson());
-      
-      return {
-        'success': true,
-        'message': 'Calibration saved successfully'
-      };
+
+      return {'success': true, 'message': 'Calibration saved successfully'};
     } on FirebaseException catch (e) {
       String errorMessage = 'Firebase error: ';
       switch (e.code) {
@@ -261,11 +243,7 @@ class FirestoreService {
         default:
           errorMessage += '${e.message}';
       }
-      return {
-        'success': false,
-        'message': errorMessage,
-        'error': e.toString()
-      };
+      return {'success': false, 'message': errorMessage, 'error': e.toString()};
     } catch (e) {
       return {
         'success': false,
@@ -296,11 +274,8 @@ class FirestoreService {
   // Get user profile
   Future<UserProfile?> getUserProfile(String userId) async {
     try {
-      final snapshot = await _firestore
-          .collection('users')
-          .doc(userId)
-          .get();
-      
+      final snapshot = await _firestore.collection('users').doc(userId).get();
+
       if (snapshot.exists && snapshot.data() != null) {
         return UserProfile.fromJson(snapshot.data()!);
       }
@@ -317,11 +292,8 @@ class FirestoreService {
           .collection('users')
           .doc(profile.uid)
           .set(profile.toJson(), SetOptions(merge: true));
-      
-      return {
-        'success': true,
-        'message': 'Profile updated successfully'
-      };
+
+      return {'success': true, 'message': 'Profile updated successfully'};
     } on FirebaseException catch (e) {
       String errorMessage = 'Firebase error: ';
       switch (e.code) {
@@ -337,11 +309,7 @@ class FirestoreService {
         default:
           errorMessage += '${e.message}';
       }
-      return {
-        'success': false,
-        'message': errorMessage,
-        'error': e.toString()
-      };
+      return {'success': false, 'message': errorMessage, 'error': e.toString()};
     } catch (e) {
       return {
         'success': false,
@@ -370,12 +338,9 @@ class FirestoreService {
     try {
       // Check if profile already exists
       final existingProfile = await getUserProfile(profile.uid);
-      
+
       if (existingProfile != null) {
-        return {
-          'success': true,
-          'message': 'Profile already exists'
-        };
+        return {'success': true, 'message': 'Profile already exists'};
       }
 
       // Create new profile
@@ -383,11 +348,8 @@ class FirestoreService {
           .collection('users')
           .doc(profile.uid)
           .set(profile.toJson());
-      
-      return {
-        'success': true,
-        'message': 'Profile created successfully'
-      };
+
+      return {'success': true, 'message': 'Profile created successfully'};
     } catch (e) {
       return {
         'success': false,
@@ -399,7 +361,8 @@ class FirestoreService {
 
   // ============ NOTIFICATION PREFERENCES METHODS ============
 
-  Future<NotificationPreferences?> getNotificationPreferences(String userId) async {
+  Future<NotificationPreferences?> getNotificationPreferences(
+      String userId) async {
     try {
       final snapshot = await _firestore
           .collection('users')
@@ -407,7 +370,7 @@ class FirestoreService {
           .collection('settings')
           .doc('notifications')
           .get();
-      
+
       if (snapshot.exists && snapshot.data() != null) {
         return NotificationPreferences.fromJson(snapshot.data()!);
       }
@@ -426,7 +389,7 @@ class FirestoreService {
           .collection('settings')
           .doc('notifications')
           .set(preferences.toJson(), SetOptions(merge: true));
-      
+
       return {'success': true, 'message': 'Notification preferences saved'};
     } catch (e) {
       return {
@@ -436,7 +399,8 @@ class FirestoreService {
     }
   }
 
-  Future<List<NotificationHistoryItem>> getNotificationHistory(String userId) async {
+  Future<List<NotificationHistoryItem>> getNotificationHistory(
+      String userId) async {
     try {
       final snapshot = await _firestore
           .collection('users')
@@ -445,7 +409,7 @@ class FirestoreService {
           .orderBy('timestamp', descending: true)
           .limit(50)
           .get();
-      
+
       return snapshot.docs
           .map((doc) => NotificationHistoryItem.fromJson(doc.data()))
           .toList();
@@ -464,7 +428,7 @@ class FirestoreService {
           .collection('settings')
           .doc('watering_schedule')
           .get();
-      
+
       if (snapshot.exists && snapshot.data() != null) {
         return WateringSchedule.fromJson(snapshot.data()!);
       }
@@ -483,13 +447,47 @@ class FirestoreService {
           .collection('settings')
           .doc('watering_schedule')
           .set(schedule.toJson(), SetOptions(merge: true));
-      
+
       return {'success': true, 'message': 'Watering schedule saved'};
     } catch (e) {
       return {
         'success': false,
         'message': 'Failed to save schedule: ${e.toString()}',
       };
+    }
+  }
+
+  // ============ ACTIVITY LOG METHODS ============
+
+  // Get activity logs stream (real-time, last 20 activities)
+  Stream<List<ActivityLog>> getActivityLogsStream() {
+    return _firestore
+        .collection('activity_logs')
+        .orderBy('timestamp', descending: true)
+        .limit(5)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => ActivityLog.fromMap(doc.data(), doc.id))
+          .toList();
+    });
+  }
+
+  // Log a new activity
+  Future<void> logActivity({
+    required String title,
+    required String description,
+    required String type,
+  }) async {
+    try {
+      await _firestore.collection('activity_logs').add({
+        'title': title,
+        'description': description,
+        'type': type,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+    } catch (e) {
+      print('Error logging activity: $e');
     }
   }
 }

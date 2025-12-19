@@ -5,6 +5,7 @@ import '../viewmodels/sensor_viewmodel.dart';
 import '../models/actuator_data.dart';
 import '../services/speech_service.dart';
 import '../services/tts_service.dart';
+import '../services/firestore_service.dart';
 import '../viewmodels/settings_viewmodel.dart';
 
 class ControlScreen extends StatefulWidget {
@@ -114,18 +115,45 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
     tts.speak('Command not recognized');
   }
 
-  void _executeEmergencyStop() {
+  void _executeEmergencyStop() async {
+    final viewModel = context.read<SensorViewModel>();
+    
+    // Turn off all actuators
+    final updatedData = ActuatorData(
+      waterPump: false,
+      nutrientPump: false,
+      lights: false,
+      fan: false,
+      timestamp: DateTime.now(),
+    );
+
+    // Send command to Firebase
+    await viewModel.sendActuatorCommand(updatedData);
+
+    // Log the activity
+    final firestoreService = FirestoreService();
+    await firestoreService.logActivity(
+      title: 'EMERGENCY STOP',
+      description: 'All systems halted - Water Pump, Nutrient Pump, Lights, and Fan turned OFF',
+      type: 'emergency',
+    );
+
+    // Update local state
     setState(() {
       _waterPumpState = false;
       _nutrientPumpState = false;
       _lightsState = false;
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('All systems halted!'),
-        backgroundColor: Colors.red,
-      ),
-    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('EMERGENCY STOP - All systems halted!'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
   }
 
   @override
@@ -405,14 +433,47 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
       timestamp: DateTime.now(),
     );
 
+    // Get display name
+    String displayName;
+    String type;
+    switch (actuatorName) {
+      case 'waterPump':
+        displayName = 'Water Pump';
+        type = 'water_pump';
+        break;
+      case 'nutrientPump':
+        displayName = 'Nutrient Pump';
+        type = 'nutrient_pump';
+        break;
+      case 'lights':
+        displayName = 'Grow Lights';
+        type = 'lights';
+        break;
+      case 'fan':
+        displayName = 'Ventilation Fan';
+        type = 'fan';
+        break;
+      default:
+        displayName = actuatorName;
+        type = 'system';
+    }
+
     // Send command to Firebase
     await viewModel.sendActuatorCommand(updatedData);
+
+    // Log the activity
+    final firestoreService = FirestoreService();
+    await firestoreService.logActivity(
+      title: '$displayName ${value ? "activated" : "deactivated"}',
+      description: 'Control panel: $displayName turned ${value ? "ON" : "OFF"}',
+      type: type,
+    );
     
     // Show feedback
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${actuatorName == 'waterPump' ? 'Water Pump' : actuatorName == 'nutrientPump' ? 'Nutrient Pump' : actuatorName == 'lights' ? 'Lights' : 'Fan'} turned ${value ? 'ON' : 'OFF'}'),
+          content: Text('$displayName turned ${value ? 'ON' : 'OFF'}'),
           duration: const Duration(seconds: 2),
           backgroundColor: Colors.green[700],
         ),
