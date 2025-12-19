@@ -22,9 +22,84 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    // Migration from version 1 to 2: ensure all tables exist
+    if (oldVersion < 2) {
+      // Create tables if they don't exist (idempotent)
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS cached_actuator_data (
+          id INTEGER PRIMARY KEY,
+          water_pump INTEGER,
+          nutrient_pump INTEGER,
+          lights INTEGER,
+          fan INTEGER,
+          timestamp INTEGER
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS alert_history (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          sensor_type TEXT,
+          message TEXT,
+          severity TEXT,
+          timestamp INTEGER
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS threshold_profiles (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT,
+          temp_min REAL,
+          temp_max REAL,
+          ph_min REAL,
+          ph_max REAL,
+          water_min REAL,
+          water_max REAL,
+          tds_min REAL,
+          tds_max REAL,
+          light_min REAL,
+          light_max REAL,
+          is_active INTEGER DEFAULT 0
+        )
+      ''');
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS command_queue (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          command_type TEXT,
+          payload TEXT,
+          created_at INTEGER,
+          synced INTEGER DEFAULT 0
+        )
+      ''');
+
+      // Check if default profile exists, insert if not
+      final profiles = await db.query('threshold_profiles');
+      if (profiles.isEmpty) {
+        await db.insert('threshold_profiles', {
+          'name': 'Default',
+          'temp_min': 18.0,
+          'temp_max': 28.0,
+          'ph_min': 5.5,
+          'ph_max': 6.5,
+          'water_min': 20.0,
+          'water_max': 100.0,
+          'tds_min': 800.0,
+          'tds_max': 1500.0,
+          'light_min': 200.0,
+          'light_max': 1000.0,
+          'is_active': 1,
+        });
+      }
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {
