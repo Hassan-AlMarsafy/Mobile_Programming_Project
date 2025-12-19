@@ -3,6 +3,8 @@ import 'package:hydroponic_app/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import '/widgets/main_layout.dart';
 import '../../viewmodels/sensor_viewmodel.dart';
+import '/services/tts_service.dart';
+import '/viewmodels/settings_viewmodel.dart';
 
 class SensorScreen extends StatefulWidget {
   const SensorScreen({super.key});
@@ -21,6 +23,26 @@ class _SensorScreenState extends State<SensorScreen> {
         _lastUpdate = DateTime.now();
       });
     }
+  }
+
+  Future<void> _speakAllSensors() async {
+    final viewModel = Provider.of<SensorViewModel>(context, listen: false);
+    final sensorData = viewModel.sensorData;
+    if (sensorData == null) return;
+
+    final tts = TtsService();
+    StringBuffer message = StringBuffer("Sensor readings. ");
+
+    message.write(
+        "Temperature is ${sensorData.temperature.toStringAsFixed(1)} degrees Celsius. ");
+    message.write("pH level is ${sensorData.pH.toStringAsFixed(1)}. ");
+    message.write(
+        "Water level is ${sensorData.waterLevel.toStringAsFixed(0)} percent. ");
+    message.write("TDS is ${sensorData.tds.toStringAsFixed(0)} ppm. ");
+    message.write(
+        "Light intensity is ${sensorData.lightIntensity.toStringAsFixed(0)} lux. ");
+
+    await tts.speak(message.toString());
   }
 
   String _getTimeAgo(DateTime dateTime) {
@@ -62,6 +84,16 @@ class _SensorScreenState extends State<SensorScreen> {
       title: 'Sensor Monitoring',
       currentIndex: 1,
       actions: [
+        Consumer<SettingsViewModel>(
+          builder: (context, settings, _) {
+            if (!settings.ttsEnabled) return const SizedBox.shrink();
+            return IconButton(
+              icon: const Icon(Icons.volume_up, color: Colors.white),
+              onPressed: _speakAllSensors,
+              tooltip: 'Read all sensors',
+            );
+          },
+        ),
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white),
           onPressed: _refreshSensors,
@@ -175,25 +207,21 @@ class _SensorScreenState extends State<SensorScreen> {
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 12),
-
                   _buildActuatorCard(
                     name: 'Water Pump',
                     icon: Icons.water,
                     isActive: actuatorData.waterPump,
                   ),
-
                   _buildActuatorCard(
                     name: 'Nutrient Pump',
                     icon: Icons.science,
                     isActive: actuatorData.nutrientPump,
                   ),
-
                   _buildActuatorCard(
                     name: 'Lights',
                     icon: Icons.lightbulb,
                     isActive: actuatorData.lights,
                   ),
-
                   _buildActuatorCard(
                     name: 'Fan',
                     icon: Icons.air,

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:hydroponic_app/theme/app_theme.dart';
 import 'package:provider/provider.dart';
 import '../viewmodels/sensor_viewmodel.dart';
+import '../viewmodels/settings_viewmodel.dart';
 import '../widgets/sensor_tile.dart';
 import '../widgets/main_layout.dart';
 import '../models/actuator_data.dart';
+import '../services/tts_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -49,10 +51,17 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   Widget build(BuildContext context) {
+    final settingsViewModel = context.watch<SettingsViewModel>();
+    
     return MainLayout(
       title: 'Dashboard',
       currentIndex: 0,
       actions: [
+        if (settingsViewModel.ttsEnabled)
+          IconButton(
+            icon: const Icon(Icons.volume_up, color: Colors.white),
+            onPressed: () => _speakSystemStatus(),
+          ),
         IconButton(
           icon: const Icon(Icons.notifications_outlined, color: Colors.white),
           onPressed: () => Navigator.pushNamed(context, '/alerts'),
@@ -720,6 +729,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
+<<<<<<< HEAD
   SensorStatus _getSensorStatus(double value, double min, double max) {
     if (value < min * 0.9 || value > max * 1.1) {
       return SensorStatus.critical;
@@ -942,3 +952,33 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 }
+=======
+  Future<void> _speakSystemStatus() async {
+    final tts = TtsService();
+    final viewModel = context.read<SensorViewModel>();
+    
+    StringBuffer message = StringBuffer("System status report. ");
+    
+    if (viewModel.sensors.isEmpty) {
+      message.write("No sensor data available.");
+    } else {
+      message.write("All systems operational. ");
+      for (var sensor in viewModel.sensors) {
+        message.write("${sensor.name} is ${sensor.value} ");
+        // Add unit based on sensor type
+        if (sensor.name.toLowerCase().contains('temperature')) {
+          message.write("degrees celsius. ");
+        } else if (sensor.name.toLowerCase().contains('humidity')) {
+          message.write("percent. ");
+        } else if (sensor.name.toLowerCase().contains('water')) {
+          message.write("percent. ");
+        } else {
+          message.write(". ");
+        }
+      }
+    }
+    
+    await tts.speak(message.toString());
+  }
+}
+>>>>>>> origin/TTS-SR

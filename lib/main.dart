@@ -5,6 +5,7 @@ import 'firebase_options.dart';
 import 'viewmodels/sensor_viewmodel.dart';
 import 'viewmodels/auth_viewmodel.dart';
 import 'viewmodels/theme_viewmodel.dart';
+import 'viewmodels/settings_viewmodel.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 import 'screens/auth_screen.dart';
@@ -28,6 +29,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => SensorViewModel()),
         ChangeNotifierProvider(create: (_) => AuthViewModel()),
         ChangeNotifierProvider(create: (_) => ThemeViewModel()),
+        ChangeNotifierProvider(create: (_) => SettingsViewModel()),
       ],
       child: const SmartHydroponicApp(),
     ),

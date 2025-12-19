@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../../utils/validators.dart';
 import 'package:provider/provider.dart';
 import '../../viewmodels/sensor_viewmodel.dart';
+import '../../services/tts_service.dart';
+import '../../viewmodels/settings_viewmodel.dart';
 
 class SensorDetailScreen extends StatefulWidget {
   final Map<String, dynamic> sensor;
@@ -32,6 +34,8 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final settingsViewModel = context.watch<SettingsViewModel>();
+
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
@@ -43,6 +47,11 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
           ),
         ),
         actions: [
+          if (settingsViewModel.ttsEnabled)
+            IconButton(
+              icon: const Icon(Icons.volume_up, color: Colors.white),
+              onPressed: () => _speakSensorReading(),
+            ),
           IconButton(
             icon: const Icon(Icons.share, color: Colors.white),
             onPressed: () {
@@ -211,13 +220,19 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                                   Icon(
                                     Icons.cloud_off,
                                     size: 48,
-                                    color: Theme.of(context).textTheme.bodySmall?.color,
+                                    color: Theme.of(context)
+                                        .textTheme
+                                        .bodySmall
+                                        ?.color,
                                   ),
                                   const SizedBox(height: 12),
                                   Text(
                                     'No Firebase data available',
                                     style: TextStyle(
-                                      color: Theme.of(context).textTheme.bodySmall?.color,
+                                      color: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.color,
                                       fontSize: 14,
                                     ),
                                   ),
@@ -276,7 +291,9 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.surfaceVariant,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surfaceVariant,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Row(
@@ -285,14 +302,20 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                                     Icon(
                                       Icons.access_time,
                                       size: 14,
-                                      color: Theme.of(context).textTheme.bodySmall?.color,
+                                      color: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.color,
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
                                       'Last updated: ${sensorData.timestamp.toString().substring(11, 19)}',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        color: Theme.of(context).textTheme.bodySmall?.color,
+                                        color: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.color,
                                       ),
                                     ),
                                   ],
@@ -467,7 +490,9 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
             const SizedBox(height: 8),
             Text(
               label,
-              style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
+              style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).textTheme.bodySmall?.color),
             ),
             const SizedBox(height: 4),
             Text(
@@ -498,7 +523,9 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
             children: [
               Text(
                 label,
-                style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
+                style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).textTheme.bodySmall?.color),
               ),
               const SizedBox(height: 2),
               Text(
@@ -746,6 +773,20 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
           ],
         );
       },
+    );
+  }
+
+  Future<void> _speakSensorReading() async {
+    final tts = TtsService();
+    final value = _getCalibratedValue().toStringAsFixed(1);
+    final name = widget.sensor['name'];
+    final unit = widget.sensor['unit'];
+    final status = widget.sensor['status'];
+    final min = widget.sensor['min'];
+    final max = widget.sensor['max'];
+
+    await tts.speak(
+      "$name is currently $value $unit. Status: $status . Acceptable range is between $min and $max $unit.",
     );
   }
 }
