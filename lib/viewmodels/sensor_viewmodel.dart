@@ -45,16 +45,16 @@ class SensorViewModel extends ChangeNotifier {
   void _initConnectivity() {
     _connectivitySubscription =
         _connectivity.onConnectivityChanged.listen((results) {
-          final wasOffline = isOffline;
-          isOffline = results.contains(ConnectivityResult.none);
+      final wasOffline = isOffline;
+      isOffline = results.contains(ConnectivityResult.none);
 
-          if (wasOffline && !isOffline) {
-            // Just came online - sync queued commands
-            _syncQueuedCommands();
-          }
+      if (wasOffline && !isOffline) {
+        // Just came online - sync queued commands
+        _syncQueuedCommands();
+      }
 
-          notifyListeners();
-        });
+      notifyListeners();
+    });
 
     // Check initial connectivity
     _connectivity.checkConnectivity().then((results) {
@@ -113,8 +113,8 @@ class SensorViewModel extends ChangeNotifier {
   // Listen to Firebase changes and update local state
   void _listenToFirebaseData() {
     _sensorSubscription = _firestoreService.getSensorDataStream().listen((
-        data,
-        ) {
+      data,
+    ) {
       if (data != null) {
         sensorData = data;
         loading = false;
@@ -124,6 +124,9 @@ class SensorViewModel extends ChangeNotifier {
         // Cache to SQLite for offline mode
         _databaseService.cacheSensorData(data);
         _databaseService.addSensorHistory(data);
+
+        // Check thresholds and generate alerts
+        _checkThresholdsAndAlert(data);
 
         print(
             'Sensor data updated: Temp=${data.temperature}°C, pH=${data.pH}, Water=${data.waterLevel}%, Light=${data.lightIntensity} lux');
@@ -144,8 +147,8 @@ class SensorViewModel extends ChangeNotifier {
     });
 
     _actuatorSubscription = _firestoreService.getActuatorDataStream().listen((
-        data,
-        ) {
+      data,
+    ) {
       if (data != null) {
         actuatorData = data;
         // Cache to SQLite for offline mode
@@ -155,8 +158,8 @@ class SensorViewModel extends ChangeNotifier {
     });
 
     _modeSubscription = _firestoreService.getSystemModeStream().listen((
-        mode,
-        ) {
+      mode,
+    ) {
       isAutomaticMode = mode;
       notifyListeners();
 
@@ -168,8 +171,8 @@ class SensorViewModel extends ChangeNotifier {
 
     // Listen to activity logs
     _activitySubscription = _firestoreService.getActivityLogsStream().listen((
-        logs,
-        ) {
+      logs,
+    ) {
       activityLogs = logs;
       notifyListeners();
     });
@@ -313,6 +316,115 @@ class SensorViewModel extends ChangeNotifier {
     // Run automatic control if switching to automatic mode
     if (newMode && sensorData != null && actuatorData != null) {
       _runAutomaticControl();
+    }
+  }
+
+  // Check sensor values against thresholds and generate alerts
+  Future<void> _checkThresholdsAndAlert(SensorData data) async {
+    final profile = await _databaseService.getActiveProfile();
+    if (profile == null) return;
+
+    // Check Temperature
+    final tempMin = profile['temp_min'] as num?;
+    final tempMax = profile['temp_max'] as num?;
+    if (tempMin != null && tempMax != null) {
+      if (data.temperature < tempMin) {
+        await _databaseService.addAlert(
+          sensorType: 'temperature',
+          message:
+              'Temperature too low: ${data.temperature.toStringAsFixed(1)}°C (min: $tempMin°C)',
+          severity: 'warning',
+        );
+      } else if (data.temperature > tempMax) {
+        await _databaseService.addAlert(
+          sensorType: 'temperature',
+          message:
+              'Temperature too high: ${data.temperature.toStringAsFixed(1)}°C (max: $tempMax°C)',
+          severity: data.temperature > tempMax + 5 ? 'critical' : 'warning',
+        );
+      }
+    }
+
+    // Check pH
+    final phMin = profile['ph_min'] as num?;
+    final phMax = profile['ph_max'] as num?;
+    if (phMin != null && phMax != null) {
+      if (data.pH < phMin) {
+        await _databaseService.addAlert(
+          sensorType: 'ph',
+          message: 'pH too low: ${data.pH.toStringAsFixed(2)} (min: $phMin)',
+          severity: data.pH < phMin - 1 ? 'critical' : 'warning',
+        );
+      } else if (data.pH > phMax) {
+        await _databaseService.addAlert(
+          sensorType: 'ph',
+          message: 'pH too high: ${data.pH.toStringAsFixed(2)} (max: $phMax)',
+          severity: data.pH > phMax + 1 ? 'critical' : 'warning',
+        );
+      }
+    }
+
+    // Check Water Level
+    final waterMin = profile['water_min'] as num?;
+    final waterMax = profile['water_max'] as num?;
+    if (waterMin != null && waterMax != null) {
+      if (data.waterLevel < waterMin) {
+        await _databaseService.addAlert(
+          sensorType: 'water_level',
+          message:
+              'Water level too low: ${data.waterLevel.toStringAsFixed(1)}% (min: $waterMin%)',
+          severity: data.waterLevel < waterMin - 10 ? 'critical' : 'warning',
+        );
+      } else if (data.waterLevel > waterMax) {
+        await _databaseService.addAlert(
+          sensorType: 'water_level',
+          message:
+              'Water level too high: ${data.waterLevel.toStringAsFixed(1)}% (max: $waterMax%)',
+          severity: 'warning',
+        );
+      }
+    }
+
+    // Check TDS
+    final tdsMin = profile['tds_min'] as num?;
+    final tdsMax = profile['tds_max'] as num?;
+    if (tdsMin != null && tdsMax != null) {
+      if (data.tds < tdsMin) {
+        await _databaseService.addAlert(
+          sensorType: 'tds',
+          message:
+              'TDS too low: ${data.tds.toStringAsFixed(0)} ppm (min: $tdsMin ppm)',
+          severity: 'warning',
+        );
+      } else if (data.tds > tdsMax) {
+        await _databaseService.addAlert(
+          sensorType: 'tds',
+          message:
+              'TDS too high: ${data.tds.toStringAsFixed(0)} ppm (max: $tdsMax ppm)',
+          severity: data.tds > tdsMax * 1.5 ? 'critical' : 'warning',
+        );
+      }
+    }
+
+    // Check Light Intensity
+    final lightMin = profile['light_min'] as num?;
+    final lightMax = profile['light_max'] as num?;
+    if (lightMin != null && lightMax != null) {
+      if (data.lightIntensity < lightMin) {
+        await _databaseService.addAlert(
+          sensorType: 'light_intensity',
+          message:
+              'Light too low: ${data.lightIntensity.toStringAsFixed(0)} lux (min: $lightMin lux)',
+          severity: 'warning',
+        );
+      } else if (data.lightIntensity > lightMax) {
+        await _databaseService.addAlert(
+          sensorType: 'light_intensity',
+          message:
+              'Light too high: ${data.lightIntensity.toStringAsFixed(0)} lux (max: $lightMax lux)',
+          severity: 'warning',
+        );
+      }
     }
   }
 

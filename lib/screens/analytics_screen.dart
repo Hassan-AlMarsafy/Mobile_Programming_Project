@@ -18,6 +18,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   List<Map<String, dynamic>> _sensorHistory = [];
   Map<String, dynamic> _statistics = {};
+  Map<String, dynamic>? _activeProfile;
+  Map<String, dynamic> _alertSummary = {};
   bool _loading = true;
   int _selectedDays = 7;
   String _selectedSensor = 'temperature';
@@ -68,10 +70,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         await _databaseService.getSensorHistory(days: _selectedDays);
     final stats =
         await _databaseService.getSensorStatistics(days: _selectedDays);
+    final profile = await _databaseService.getActiveProfile();
+    final alerts = await _databaseService.getAlertSummary(days: _selectedDays);
 
     setState(() {
       _sensorHistory = history;
       _statistics = stats;
+      _activeProfile = profile;
+      _alertSummary = alerts;
       _loading = false;
     });
   }
@@ -177,6 +183,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     _buildTrendChart(),
                     const SizedBox(height: 24),
                     _buildStatisticsCards(),
+                    const SizedBox(height: 24),
+                    _buildTrendIndicators(),
+                    const SizedBox(height: 24),
+                    _buildAlertSummary(),
                   ],
                 ),
               ),
@@ -509,6 +519,372 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Calculate trend: positive = up, negative = down, 0 = stable
+  double _calculateTrend(String sensor) {
+    if (_sensorHistory.length < 2) return 0;
+
+    // Compare first half average to second half average
+    final midpoint = _sensorHistory.length ~/ 2;
+    final firstHalf = _sensorHistory.sublist(0, midpoint);
+    final secondHalf = _sensorHistory.sublist(midpoint);
+
+    double firstAvg = 0;
+    double secondAvg = 0;
+    int firstCount = 0;
+    int secondCount = 0;
+
+    for (final data in firstHalf) {
+      final value = data[sensor];
+      if (value != null) {
+        firstAvg += (value as num).toDouble();
+        firstCount++;
+      }
+    }
+
+    for (final data in secondHalf) {
+      final value = data[sensor];
+      if (value != null) {
+        secondAvg += (value as num).toDouble();
+        secondCount++;
+      }
+    }
+
+    if (firstCount == 0 || secondCount == 0) return 0;
+
+    firstAvg /= firstCount;
+    secondAvg /= secondCount;
+
+    final change = ((secondAvg - firstAvg) / firstAvg) * 100;
+    return change;
+  }
+
+  // Check if current average is outside threshold
+  bool _isOutsideThreshold(String sensor) {
+    if (_activeProfile == null) return false;
+
+    final thresholdMap = {
+      'temperature': ['temp_min', 'temp_max'],
+      'ph': ['ph_min', 'ph_max'],
+      'water_level': ['water_min', 'water_max'],
+      'tds': ['tds_min', 'tds_max'],
+      'light_intensity': ['light_min', 'light_max'],
+    };
+
+    final avgKeyMap = {
+      'temperature': 'avg_temp',
+      'ph': 'avg_ph',
+      'water_level': 'avg_water',
+      'tds': 'avg_tds',
+      'light_intensity': 'avg_light',
+    };
+
+    final keys = thresholdMap[sensor];
+    final avgKey = avgKeyMap[sensor];
+    if (keys == null || avgKey == null) return false;
+
+    final avg = _statistics[avgKey] as num?;
+    final min = _activeProfile![keys[0]] as num?;
+    final max = _activeProfile![keys[1]] as num?;
+
+    if (avg == null || min == null || max == null) return false;
+
+    return avg < min || avg > max;
+  }
+
+  Widget _buildTrendIndicators() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.trending_up, color: Colors.green[600], size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'Sensor Trends',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ..._sensorLabels.entries.map((entry) {
+              final trend = _calculateTrend(entry.key);
+              final isOutside = _isOutsideThreshold(entry.key);
+
+              IconData trendIcon;
+              Color trendColor;
+              String trendText;
+
+              if (trend > 5) {
+                trendIcon = Icons.trending_up;
+                trendColor = isOutside ? Colors.red : Colors.green;
+                trendText = '+${trend.toStringAsFixed(1)}%';
+              } else if (trend < -5) {
+                trendIcon = Icons.trending_down;
+                trendColor = Colors.red;
+                trendText = '${trend.toStringAsFixed(1)}%';
+              } else {
+                trendIcon = Icons.trending_flat;
+                trendColor = isOutside ? Colors.red : Colors.grey;
+                trendText = 'Stable';
+              }
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isOutside
+                      ? Colors.red.withOpacity(0.1)
+                      : Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color:
+                        isOutside ? Colors.red : Colors.grey.withOpacity(0.2),
+                    width: isOutside ? 1.5 : 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: _sensorColors[entry.key],
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        entry.value.split(' ').first,
+                        style: const TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    if (isOutside) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.warning_amber,
+                                color: Colors.white, size: 14),
+                            SizedBox(width: 4),
+                            Text(
+                              'Alert',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    Icon(trendIcon, color: trendColor, size: 20),
+                    const SizedBox(width: 6),
+                    Text(
+                      trendText,
+                      style: TextStyle(
+                        color: trendColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAlertSummary() {
+    final total = _alertSummary['total'] as int? ?? 0;
+    final bySensor = _alertSummary['by_sensor'] as Map<String, int>? ?? {};
+    final bySeverity = _alertSummary['by_severity'] as Map<String, int>? ?? {};
+
+    final sensorDisplayNames = {
+      'temperature': 'Temp',
+      'ph': 'pH',
+      'water_level': 'Water',
+      'tds': 'TDS',
+      'light_intensity': 'Light',
+    };
+
+    final severityColors = {
+      'critical': Colors.red,
+      'warning': Colors.orange,
+      'info': Colors.blue,
+    };
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.notifications_active,
+                    color: Colors.red[600], size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  'Alert Summary',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: total > 0 ? Colors.red : Colors.green,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Text(
+                    '$total alert${total != 1 ? 's' : ''}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (total == 0) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.check_circle,
+                        color: Colors.green[600], size: 24),
+                    const SizedBox(width: 12),
+                    Text(
+                      'All sensors within normal range',
+                      style: TextStyle(
+                        color: Colors.green[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              const SizedBox(height: 16),
+              // By Severity
+              const Text(
+                'By Severity',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: bySeverity.entries.map((entry) {
+                  final color =
+                      severityColors[entry.key.toLowerCase()] ?? Colors.grey;
+                  return Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: color.withOpacity(0.5)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          entry.key.toLowerCase() == 'critical'
+                              ? Icons.error
+                              : entry.key.toLowerCase() == 'warning'
+                                  ? Icons.warning_amber
+                                  : Icons.info,
+                          size: 16,
+                          color: color,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${entry.key}: ${entry.value}',
+                          style: TextStyle(
+                            color: color,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+              // By Sensor
+              const Text(
+                'By Sensor',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: bySensor.entries.map((entry) {
+                  final displayName =
+                      sensorDisplayNames[entry.key] ?? entry.key;
+                  final color = _sensorColors[entry.key] ?? Colors.grey;
+                  return Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: color.withOpacity(0.5)),
+                    ),
+                    child: Text(
+                      '$displayName: ${entry.value}',
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
           ],
         ),
       ),

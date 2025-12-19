@@ -107,7 +107,6 @@ class DatabaseService {
       )
     ''');
 
-    // Insert default threshold profiles
     await db.insert('threshold_profiles', {
       'name': 'Default',
       'temp_min': 18.0,
@@ -121,36 +120,6 @@ class DatabaseService {
       'light_min': 200.0,
       'light_max': 1000.0,
       'is_active': 1,
-    });
-
-    await db.insert('threshold_profiles', {
-      'name': 'Lettuce',
-      'temp_min': 15.0,
-      'temp_max': 22.0,
-      'ph_min': 5.5,
-      'ph_max': 6.5,
-      'water_min': 30.0,
-      'water_max': 100.0,
-      'tds_min': 560.0,
-      'tds_max': 840.0,
-      'light_min': 150.0,
-      'light_max': 600.0,
-      'is_active': 0,
-    });
-
-    await db.insert('threshold_profiles', {
-      'name': 'Tomatoes',
-      'temp_min': 18.0,
-      'temp_max': 26.0,
-      'ph_min': 5.8,
-      'ph_max': 6.8,
-      'water_min': 30.0,
-      'water_max': 100.0,
-      'tds_min': 1400.0,
-      'tds_max': 3500.0,
-      'light_min': 300.0,
-      'light_max': 1000.0,
-      'is_active': 0,
     });
   }
 
@@ -319,6 +288,48 @@ class DatabaseService {
       orderBy: 'timestamp DESC',
       limit: limit,
     );
+  }
+
+  Future<Map<String, dynamic>> getAlertSummary({int days = 7}) async {
+    final db = await database;
+    final cutoff =
+        DateTime.now().subtract(Duration(days: days)).millisecondsSinceEpoch;
+
+    // Get total count
+    final totalResult = await db.rawQuery('''
+      SELECT COUNT(*) as total FROM alert_history WHERE timestamp > ?
+    ''', [cutoff]);
+    final totalAlerts = totalResult.first['total'] as int? ?? 0;
+
+    // Get counts by sensor type
+    final bySensorResult = await db.rawQuery('''
+      SELECT sensor_type, COUNT(*) as count 
+      FROM alert_history 
+      WHERE timestamp > ?
+      GROUP BY sensor_type
+    ''', [cutoff]);
+    final bySensor = <String, int>{};
+    for (final row in bySensorResult) {
+      bySensor[row['sensor_type'] as String] = row['count'] as int;
+    }
+
+    // Get counts by severity
+    final bySeverityResult = await db.rawQuery('''
+      SELECT severity, COUNT(*) as count 
+      FROM alert_history 
+      WHERE timestamp > ?
+      GROUP BY severity
+    ''', [cutoff]);
+    final bySeverity = <String, int>{};
+    for (final row in bySeverityResult) {
+      bySeverity[row['severity'] as String] = row['count'] as int;
+    }
+
+    return {
+      'total': totalAlerts,
+      'by_sensor': bySensor,
+      'by_severity': bySeverity,
+    };
   }
 
   // ============ THRESHOLD PROFILES ============
