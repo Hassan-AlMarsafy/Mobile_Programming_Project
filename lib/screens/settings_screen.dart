@@ -43,8 +43,6 @@ class _SettingsScreenState extends State<SettingsScreen>
   bool _biometricAuth = false;
   bool _biometricAvailable = false;
   String _biometricType = 'Biometric';
-  String _temperatureUnit = 'Celsius';
-  String _language = 'English';
 
   @override
   void initState() {
@@ -171,8 +169,6 @@ class _SettingsScreenState extends State<SettingsScreen>
         _notificationsEnabled = profile!.notificationsEnabled;
         _autoWatering = profile.autoWatering;
         _biometricAuth = profile.biometricEnabled;
-        _temperatureUnit = profile.temperatureUnit;
-        _language = profile.language;
       });
     } else {
       setState(() {
@@ -632,26 +628,6 @@ class _SettingsScreenState extends State<SettingsScreen>
                         child: Column(
                           children: [
                             _buildNavigationTile(
-                              icon: Icons.thermostat,
-                              title: 'Temperature Unit',
-                              subtitle: _temperatureUnit,
-                              iconColor: Colors.red,
-                              onTap: () => _showTemperatureUnitDialog(),
-                            ),
-                            Divider(
-                                height: 1,
-                                color: Theme.of(context).dividerColor),
-                            _buildNavigationTile(
-                              icon: Icons.language,
-                              title: 'Language',
-                              subtitle: _language,
-                              iconColor: Colors.teal,
-                              onTap: () => _showLanguageDialog(),
-                            ),
-                            Divider(
-                                height: 1,
-                                color: Theme.of(context).dividerColor),
-                            _buildNavigationTile(
                               icon: Icons.volume_up,
                               title: 'Voice Settings',
                               subtitle: 'Test text-to-speech',
@@ -664,8 +640,15 @@ class _SettingsScreenState extends State<SettingsScreen>
                               title: 'Watering Schedule',
                               subtitle: 'Configure auto-watering',
                               iconColor: Colors.cyan,
-                              onTap: () =>
-                                  _showSnackBar('Watering schedule settings'),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const WateringScheduleScreen(),
+                                  ),
+                                );
+                              },
                             ),
                             Divider(height: 1, color: Colors.grey[200]),
                             _buildThresholdProfilesTile(),
@@ -1061,88 +1044,6 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  void _showTemperatureUnitDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Temperature Unit'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<String>(
-              title: const Text('Celsius (°C)'),
-              value: 'Celsius',
-              groupValue: _temperatureUnit,
-              activeColor: Colors.green[700],
-              onChanged: (value) {
-                setState(() => _temperatureUnit = value!);
-                _saveTemperatureUnit(value!);
-                Navigator.pop(context);
-              },
-            ),
-            RadioListTile<String>(
-              title: const Text('Fahrenheit (°F)'),
-              value: 'Fahrenheit',
-              groupValue: _temperatureUnit,
-              activeColor: Colors.green[700],
-              onChanged: (value) {
-                setState(() => _temperatureUnit = value!);
-                _saveTemperatureUnit(value!);
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showLanguageDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Language'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            RadioListTile<String>(
-              title: const Text('English'),
-              value: 'English',
-              groupValue: _language,
-              activeColor: Colors.green[700],
-              onChanged: (value) {
-                setState(() => _language = value!);
-                _saveLanguage(value!);
-                Navigator.pop(context);
-              },
-            ),
-            RadioListTile<String>(
-              title: const Text('العربية'),
-              value: 'Arabic',
-              groupValue: _language,
-              activeColor: Colors.green[700],
-              onChanged: (value) {
-                setState(() => _language = value!);
-                _saveLanguage(value!);
-                Navigator.pop(context);
-              },
-            ),
-            RadioListTile<String>(
-              title: const Text('Español'),
-              value: 'Spanish',
-              groupValue: _language,
-              activeColor: Colors.green[700],
-              onChanged: (value) {
-                setState(() => _language = value!);
-                _saveLanguage(value!);
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   void _showEditProfileDialog() {
     if (_userProfile == null) {
@@ -1731,45 +1632,6 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-  Future<void> _saveTemperatureUnit(String value) async {
-    final user = firebase_auth.FirebaseAuth.instance.currentUser;
-    if (user == null || _userProfile == null) return;
-
-    try {
-      final updatedProfile = _userProfile!.copyWith(
-        temperatureUnit: value,
-        lastUpdated: DateTime.now(),
-      );
-
-      await _firestoreService.saveUserProfile(updatedProfile);
-
-      setState(() {
-        _userProfile = updatedProfile;
-      });
-    } catch (e) {
-      _showSnackBar('Failed to save temperature unit');
-    }
-  }
-
-  Future<void> _saveLanguage(String value) async {
-    final user = firebase_auth.FirebaseAuth.instance.currentUser;
-    if (user == null || _userProfile == null) return;
-
-    try {
-      final updatedProfile = _userProfile!.copyWith(
-        language: value,
-        lastUpdated: DateTime.now(),
-      );
-
-      await _firestoreService.saveUserProfile(updatedProfile);
-
-      setState(() {
-        _userProfile = updatedProfile;
-      });
-    } catch (e) {
-      _showSnackBar('Failed to save language setting');
-    }
-  }
 
   // ============ THRESHOLD DIALOGS ============
 
