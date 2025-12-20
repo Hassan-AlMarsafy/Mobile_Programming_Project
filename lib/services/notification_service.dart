@@ -7,14 +7,16 @@ class NotificationService {
   NotificationService._internal();
 
   final FlutterLocalNotificationsPlugin _notifications =
-      FlutterLocalNotificationsPlugin();
+  FlutterLocalNotificationsPlugin();
   bool _isInitialized = false;
 
   Future<void> initialize() async {
     if (_isInitialized) return;
 
+    print('🔔 Initializing notification service...');
+
     const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -27,7 +29,18 @@ class NotificationService {
     );
 
     await _notifications.initialize(initSettings);
+
+    // Request notification permission for Android 13+ (API 33+)
+    final androidPlugin = _notifications.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    if (androidPlugin != null) {
+      print('🔔 Requesting notification permission...');
+      final granted = await androidPlugin.requestNotificationsPermission();
+      print('🔔 Notification permission granted: $granted');
+    }
+
     _isInitialized = true;
+    print('✅ Notification service initialized');
   }
 
   Future<void> showAlertNotification({
