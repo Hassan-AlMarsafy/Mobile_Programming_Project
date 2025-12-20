@@ -6,6 +6,8 @@ import '../../viewmodels/sensor_viewmodel.dart';
 import '../../services/tts_service.dart';
 import '../../viewmodels/settings_viewmodel.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../services/database_service.dart';
+import '../../models/sensor_calibration.dart';
 
 class SensorDetailScreen extends StatefulWidget {
   final Map<String, dynamic> sensor;
@@ -22,37 +24,133 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
   bool _emailNotifications = false;
   bool _smsNotifications = true;
 
-  // Calibration tracking
-  DateTime? _lastCalibrated;
-  int _calibrationDueDays = 15;
+  // SQLite data
+  final DatabaseService _databaseService = DatabaseService();
+  Map<String, dynamic>? _thresholdProfile;
+  SensorCalibration? _sensorCalibration;
+  String _sensorType = '';
+
+  // Get sensor type key from sensor name
+  String _getSensorType(String sensorName) {
+    switch (sensorName) {
+      case 'Temperature':
+        return 'temperature';
+      case 'pH Level':
+        return 'ph';
+      case 'Water Level':
+        return 'waterLevel';
+      case 'TDS (Conductivity)':
+        return 'tds';
+      case 'Light Intensity':
+        return 'light';
+      default:
+        return sensorName.toLowerCase().replaceAll(' ', '_');
+    }
+  }
+
+  // Get threshold keys for this sensor
+  Map<String, String> _getThresholdKeys() {
+    switch (_sensorType) {
+      case 'temperature':
+        return {'min': 'temp_min', 'max': 'temp_max'};
+      case 'ph':
+        return {'min': 'ph_min', 'max': 'ph_max'};
+      case 'waterLevel':
+        return {'min': 'water_min', 'max': 'water_max'};
+      case 'tds':
+        return {'min': 'tds_min', 'max': 'tds_max'};
+      case 'light':
+        return {'min': 'light_min', 'max': 'light_max'};
+      default:
+        return {'min': 'temp_min', 'max': 'temp_max'};
+    }
+  }
+
+  // Get min threshold from SQLite or fallback to argument
+  double get _minThreshold {
+    if (_thresholdProfile != null) {
+      final key = _getThresholdKeys()['min']!;
+      return (_thresholdProfile![key] as num?)?.toDouble() ??
+          widget.sensor['min'];
+    }
+    return widget.sensor['min'];
+  }
+
+  // Get max threshold from SQLite or fallback to argument
+  double get _maxThreshold {
+    if (_thresholdProfile != null) {
+      final key = _getThresholdKeys()['max']!;
+      return (_thresholdProfile![key] as num?)?.toDouble() ??
+          widget.sensor['max'];
+    }
+    return widget.sensor['max'];
+  }
+
+  // Get calibration offset from SQLite or default to 0
+  double get _calibrationOffset {
+    return _sensorCalibration?.offset ?? 0.0;
+  }
+
+  // Get last calibrated date from SQLite
+  DateTime? get _lastCalibrated => _sensorCalibration?.lastCalibrated;
+
+  // Get days until calibration due
+  int get _calibrationDueDays {
+    if (_sensorCalibration?.nextCalibrationDue == null) return 30;
+    final days = _sensorCalibration!.nextCalibrationDue!
+        .difference(DateTime.now())
+        .inDays;
+    return days < 0 ? 0 : days;
+  }
 
   @override
   void initState() {
     super.initState();
-    _loadAlertSettings();
+    _sensorType = _getSensorType(widget.sensor['name'] as String);
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    await Future.wait([
+      _loadAlertSettings(),
+      _loadThresholds(),
+      _loadCalibration(),
+    ]);
+  }
+
+  Future<void> _loadThresholds() async {
+    final profile = await _databaseService.getActiveProfile();
+    if (mounted && profile != null) {
+      setState(() {
+        _thresholdProfile = profile;
+      });
+    }
+  }
+
+  Future<void> _loadCalibration() async {
+    final calibration =
+        await _databaseService.getSensorCalibration(_sensorType);
+    if (mounted) {
+      setState(() {
+        _sensorCalibration =
+            calibration ?? SensorCalibration.defaultCalibration(_sensorType);
+      });
+    }
   }
 
   Future<void> _loadAlertSettings() async {
     final prefs = await SharedPreferences.getInstance();
     final sensorName = widget.sensor['name'] as String;
 
-    setState(() {
-      _alertsEnabled = prefs.getBool('${sensorName}_alertsEnabled') ?? true;
-      _emailNotifications =
-          prefs.getBool('${sensorName}_emailNotifications') ?? false;
-      _smsNotifications =
-          prefs.getBool('${sensorName}_smsNotifications') ?? true;
-
-      final lastCalibratedMs = prefs.getInt('${sensorName}_lastCalibrated');
-      if (lastCalibratedMs != null) {
-        _lastCalibrated = DateTime.fromMillisecondsSinceEpoch(lastCalibratedMs);
-        // Calculate days until next calibration (every 30 days)
-        final daysSinceCalibration =
-            DateTime.now().difference(_lastCalibrated!).inDays;
-        _calibrationDueDays = 30 - daysSinceCalibration;
-        if (_calibrationDueDays < 0) _calibrationDueDays = 0;
-      }
-    });
+    if (mounted) {
+      setState(() {
+        _alertsEnabled = prefs.getBool('${sensorName}_alertsEnabled') ?? true;
+        _emailNotifications =
+            prefs.getBool('${sensorName}_emailNotifications') ?? false;
+        _smsNotifications =
+            prefs.getBool('${sensorName}_smsNotifications') ?? true;
+      });
+    }
   }
 
   Future<void> _saveAlertSetting(String key, bool value) async {
@@ -61,29 +159,47 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
     await prefs.setBool('${sensorName}_$key', value);
   }
 
-  Future<void> _saveCalibrationDate() async {
-    final prefs = await SharedPreferences.getInstance();
-    final sensorName = widget.sensor['name'] as String;
+  Future<void> _saveCalibration(double offset) async {
     final now = DateTime.now();
-    await prefs.setInt(
-        '${sensorName}_lastCalibrated', now.millisecondsSinceEpoch);
-    setState(() {
-      _lastCalibrated = now;
-      _calibrationDueDays = 30;
-    });
+    final nextDue = now.add(const Duration(days: 30));
+
+    final calibration = SensorCalibration(
+      sensorType: _sensorType,
+      offset: offset,
+      lastCalibrated: now,
+      nextCalibrationDue: nextDue,
+      calibrationIntervalDays: 30,
+    );
+
+    // Save to SQLite
+    await _databaseService.saveSensorCalibration(calibration);
+
+    // Update local state
+    if (mounted) {
+      setState(() {
+        _sensorCalibration = calibration;
+      });
+    }
+
+    // Refresh global calibration in SensorViewModel
+    if (mounted) {
+      final sensorViewModel =
+          Provider.of<SensorViewModel>(context, listen: false);
+      await sensorViewModel.refreshCalibration();
+    }
   }
 
   double _getCalibratedValue() {
-    return widget.sensor['value'] + widget.sensor['calibration'];
+    return widget.sensor['value'] + _calibrationOffset;
   }
 
   String _updateSensorStatus() {
     final calibratedValue = _getCalibratedValue();
-    if (calibratedValue < widget.sensor['min'] * 0.9 ||
-        calibratedValue > widget.sensor['max'] * 1.1) {
+    if (calibratedValue < _minThreshold * 0.9 ||
+        calibratedValue > _maxThreshold * 1.1) {
       return 'critical';
-    } else if (calibratedValue < widget.sensor['min'] ||
-        calibratedValue > widget.sensor['max']) {
+    } else if (calibratedValue < _minThreshold ||
+        calibratedValue > _maxThreshold) {
       return 'warning';
     } else {
       return 'normal';
@@ -110,17 +226,6 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
               icon: const Icon(Icons.volume_up, color: Colors.white),
               onPressed: () => _speakSensorReading(),
             ),
-          IconButton(
-            icon: const Icon(Icons.share, color: Colors.white),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Export functionality - Coming soon'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -131,15 +236,13 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
             Container(
               width: double.infinity,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.green[700]!, Colors.green[600]!],
-                ),
                 borderRadius: const BorderRadius.only(
                   bottomLeft: Radius.circular(30),
                   bottomRight: Radius.circular(30),
                 ),
+                color: Theme.of(context).brightness == Brightness.light
+                    ? AppTheme.primaryColor
+                    : AppTheme.darkPrimaryColor,
               ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
@@ -213,7 +316,7 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                   Expanded(
                     child: _buildStatCard(
                       'Min Range',
-                      '${widget.sensor['min']} ${widget.sensor['unit']}',
+                      '${_minThreshold.toStringAsFixed(1)} ${widget.sensor['unit']}',
                       Icons.arrow_downward,
                       Colors.blue,
                     ),
@@ -222,7 +325,7 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                   Expanded(
                     child: _buildStatCard(
                       'Max Range',
-                      '${widget.sensor['max']} ${widget.sensor['unit']}',
+                      '${_maxThreshold.toStringAsFixed(1)} ${widget.sensor['unit']}',
                       Icons.arrow_upward,
                       Colors.purple,
                     ),
@@ -230,167 +333,6 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                 ],
               ),
             ),
-
-            const SizedBox(height: 20),
-
-            // Real-time Firebase Data
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Live Firebase Data',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white
-                          : Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Consumer<SensorViewModel>(
-                    builder: (context, viewModel, child) {
-                      if (viewModel.loading) {
-                        return Card(
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: const Padding(
-                            padding: EdgeInsets.all(40),
-                            child: Center(child: CircularProgressIndicator()),
-                          ),
-                        );
-                      }
-
-                      final sensorData = viewModel.sensorData;
-                      if (sensorData == null) {
-                        return Card(
-                          elevation: 2,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(40),
-                            child: Center(
-                              child: Column(
-                                children: [
-                                  Icon(
-                                    Icons.cloud_off,
-                                    size: 48,
-                                    color: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.color,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'No Firebase data available',
-                                    style: TextStyle(
-                                      color: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.color,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      }
-
-                      // Display all sensor readings from Firebase
-                      return Card(
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            children: [
-                              _buildFirebaseDataRow(
-                                'Temperature',
-                                '${sensorData.temperature.toStringAsFixed(1)}°C',
-                                Icons.thermostat,
-                                Colors.orange,
-                              ),
-                              const Divider(height: 20),
-                              _buildFirebaseDataRow(
-                                'pH Level',
-                                sensorData.pH.toStringAsFixed(2),
-                                Icons.water_drop,
-                                Colors.blue,
-                              ),
-                              const Divider(height: 20),
-                              _buildFirebaseDataRow(
-                                'Water Level',
-                                '${sensorData.waterLevel.toStringAsFixed(0)}%',
-                                Icons.opacity,
-                                Colors.cyan,
-                              ),
-                              const Divider(height: 20),
-                              _buildFirebaseDataRow(
-                                'TDS',
-                                '${sensorData.tds.toStringAsFixed(0)} ppm',
-                                Icons.science,
-                                Colors.purple,
-                              ),
-                              const Divider(height: 20),
-                              _buildFirebaseDataRow(
-                                'Light Intensity',
-                                '${sensorData.lightIntensity.toStringAsFixed(0)} lux',
-                                Icons.light_mode,
-                                Colors.amber,
-                              ),
-                              const SizedBox(height: 12),
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .surfaceVariant,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.access_time,
-                                      size: 14,
-                                      color: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.color,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'Last updated: ${sensorData.timestamp.toString().substring(11, 19)}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.color,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-
             const SizedBox(height: 20),
 
             // Calibration Section
@@ -421,7 +363,7 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                         children: [
                           _buildCalibrationRow(
                             'Current Offset',
-                            '${widget.sensor['calibration']} ${widget.sensor['unit']}',
+                            '${_calibrationOffset.toStringAsFixed(2)} ${widget.sensor['unit']}',
                             Icons.tune,
                           ),
                           const Divider(height: 24),
@@ -446,7 +388,6 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                             child: ElevatedButton.icon(
                               onPressed: () {
                                 _showCalibrationDialog();
-                                _saveCalibrationDate();
                               },
                               icon: const Icon(Icons.tune),
                               label: const Text('Recalibrate Sensor'),
@@ -681,7 +622,7 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
   void _showCalibrationDialog() {
     final formKey = GlobalKey<FormState>();
     final TextEditingController calibrationController = TextEditingController(
-      text: widget.sensor['calibration'].toString(),
+      text: _calibrationOffset.toString(),
     );
 
     showDialog(
@@ -758,10 +699,10 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
                   ),
                   validator: (value) => Validators.calibrationOffset(
                     value,
-                    min: widget.sensor['min'],
-                    max: widget.sensor['max'],
-                    sensorMin: widget.sensor['min'],
-                    sensorMax: widget.sensor['max'],
+                    min: _minThreshold,
+                    max: _maxThreshold,
+                    sensorMin: _minThreshold,
+                    sensorMax: _maxThreshold,
                     unit: widget.sensor['unit'],
                   ),
                   decoration: InputDecoration(
@@ -829,17 +770,22 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 if (!formKey.currentState!.validate()) {
                   return;
                 }
 
                 final inputValue = double.parse(calibrationController.text);
 
+                // Save to SQLite
+                await _saveCalibration(inputValue);
+
+                // Update local sensor data for immediate UI feedback
                 setState(() {
-                  widget.sensor['calibration'] = inputValue;
                   widget.sensor['status'] = _updateSensorStatus();
                 });
+
+                if (!context.mounted) return;
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -866,9 +812,9 @@ class _SensorDetailScreenState extends State<SensorDetailScreen> {
     final value = _getCalibratedValue().toStringAsFixed(1);
     final name = widget.sensor['name'];
     final unit = widget.sensor['unit'];
-    final status = widget.sensor['status'];
-    final min = widget.sensor['min'];
-    final max = widget.sensor['max'];
+    final status = _updateSensorStatus();
+    final min = _minThreshold.toStringAsFixed(1);
+    final max = _maxThreshold.toStringAsFixed(1);
 
     await tts.speak(
       "$name is currently $value $unit. Status: $status . Acceptable range is between $min and $max $unit.",
