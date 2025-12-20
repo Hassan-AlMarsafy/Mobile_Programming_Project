@@ -8,16 +8,12 @@ void main() {
         uid: '123',
         displayName: 'Test User',
         email: 'test@example.com',
-        phoneNumber: '+1234567890',
-        photoURL: 'https://example.com/photo.jpg',
         createdAt: DateTime(2024, 1, 15, 10, 30),
       );
 
       expect(user.uid, '123');
       expect(user.displayName, 'Test User');
       expect(user.email, 'test@example.com');
-      expect(user.phoneNumber, '+1234567890');
-      expect(user.photoURL, 'https://example.com/photo.jpg');
       expect(user.createdAt, DateTime(2024, 1, 15, 10, 30));
     });
 
@@ -30,8 +26,6 @@ void main() {
 
       expect(user.notificationsEnabled, true);
       expect(user.autoWatering, true);
-      expect(user.temperatureUnit, 'Celsius');
-      expect(user.language, 'English');
       expect(user.biometricEnabled, false);
     });
 
@@ -56,12 +50,8 @@ void main() {
       expect(user.uid, '456');
       expect(user.displayName, 'John Doe');
       expect(user.email, 'john@example.com');
-      expect(user.phoneNumber, '+9876543210');
-      expect(user.photoURL, 'https://example.com/john.jpg');
       expect(user.notificationsEnabled, false);
       expect(user.autoWatering, false);
-      expect(user.temperatureUnit, 'Fahrenheit');
-      expect(user.language, 'Spanish');
       expect(user.biometricEnabled, true);
     });
 
@@ -70,11 +60,8 @@ void main() {
         uid: '789',
         displayName: 'Jane Smith',
         email: 'jane@example.com',
-        phoneNumber: '+1122334455',
         notificationsEnabled: true,
         autoWatering: true,
-        temperatureUnit: 'Celsius',
-        language: 'French',
         biometricEnabled: true,
       );
 
@@ -98,7 +85,6 @@ void main() {
         email: 'original@example.com',
         notificationsEnabled: true,
         autoWatering: true,
-        temperatureUnit: 'Celsius',
       );
 
       final updatedUser = user.copyWith(
@@ -109,7 +95,6 @@ void main() {
       expect(updatedUser.uid, '123'); // Unchanged
       expect(updatedUser.displayName, 'Updated User'); // Changed
       expect(updatedUser.autoWatering, false); // Changed
-      expect(updatedUser.temperatureUnit, 'Celsius'); // Unchanged
     });
 
     test('UserProfile handles null optional fields', () {
@@ -119,8 +104,6 @@ void main() {
         email: 'test@example.com',
       );
 
-      expect(user.phoneNumber, null);
-      expect(user.photoURL, null);
       expect(user.createdAt, null);
       expect(user.lastUpdated, null);
     });
@@ -137,8 +120,6 @@ void main() {
       expect(user.uid, '999');
       expect(user.displayName, 'Minimal User');
       expect(user.email, 'minimal@example.com');
-      expect(user.phoneNumber, null);
-      expect(user.photoURL, null);
       // Should use default values
       expect(user.notificationsEnabled, true);
       expect(user.autoWatering, true);
