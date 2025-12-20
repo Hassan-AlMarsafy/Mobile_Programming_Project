@@ -388,7 +388,6 @@ class FirestoreService {
     return _firestore
         .collection('activity_logs')
         .orderBy('timestamp', descending: true)
-        .limit(5)
         .snapshots()
         .map((snapshot) {
       return snapshot.docs

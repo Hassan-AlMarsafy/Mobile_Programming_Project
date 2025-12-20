@@ -415,63 +415,439 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
     );
   }
 
-  // New Widget: Control History
+  // Control History Button - Opens Modal with Full History
   Widget _buildControlHistoryCard() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHistoryItem(
-              'Water Pump',
-              'Turned ON manually',
-              '10:15 AM',
-              Icons.water_damage_outlined,
-              Colors.blue,
+    return Consumer<SensorViewModel>(
+      builder: (context, viewModel, child) {
+        final logs = viewModel.activityLogs;
+        final displayCount = logs.length > 5 ? 5 : logs.length;
+
+        return Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: InkWell(
+            onTap: () => _showFullControlHistory(),
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.history, color: Colors.green[700], size: 28),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Control History',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.green[100],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${logs.length} events',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.green[800],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+                    ],
+                  ),
+                  if (logs.isEmpty) ...[
+                    const SizedBox(height: 16),
+                    Center(
+                      child: Text(
+                        'No control history yet',
+                        style: TextStyle(
+                          color: Colors.grey[500],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 16),
+                    // Show only first 5 events
+                    ...List.generate(displayCount, (index) {
+                      final log = logs[index];
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: index < displayCount - 1 ? 12 : 0),
+                        child: _buildHistoryItem(log),
+                      );
+                    }),
+                    if (logs.length > 5) ...[
+                      const SizedBox(height: 12),
+                      Center(
+                        child: Text(
+                          'Tap to view all ${logs.length} events',
+                          style: TextStyle(
+                            color: Colors.green[700],
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ],
+              ),
             ),
-            const Divider(height: 24),
-            _buildHistoryItem(
-              'Grow Lights',
-              'Turned ON by schedule',
-              '08:00 AM',
-              Icons.lightbulb_outline,
-              Colors.amber,
-            ),
-            const Divider(height: 24),
-            _buildHistoryItem(
-              'Nutrient Pump',
-              'Turned OFF manually',
-              'Yesterday',
-              Icons.opacity,
-              Colors.purple,
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildHistoryItem(String title, String subtitle, String time, IconData icon, Color color) {
+  Widget _buildHistoryItem(dynamic log) {
+    final title = log.title ?? 'System Activity';
+    final description = log.description ?? '';
+    final timestamp = log.timestamp;
+    final type = log.type ?? 'system';
+
+    // Get icon and color based on type
+    IconData icon;
+    Color color;
+
+    switch (type) {
+      case 'water_pump':
+        icon = Icons.water_damage_outlined;
+        color = Colors.blue;
+        break;
+      case 'nutrient_pump':
+        icon = Icons.opacity;
+        color = Colors.purple;
+        break;
+      case 'lights':
+        icon = Icons.lightbulb_outline;
+        color = Colors.amber;
+        break;
+      case 'fan':
+        icon = Icons.air;
+        color = Colors.teal;
+        break;
+      case 'emergency':
+        icon = Icons.emergency;
+        color = Colors.red;
+        break;
+      case 'schedule':
+        icon = Icons.schedule;
+        color = Colors.green;
+        break;
+      default:
+        icon = Icons.settings;
+        color = Colors.grey;
+    }
+
+    // Format time
+    String timeStr;
+    final now = DateTime.now();
+    final diff = now.difference(timestamp);
+
+    if (diff.inMinutes < 1) {
+      timeStr = 'Just now';
+    } else if (diff.inHours < 1) {
+      timeStr = '${diff.inMinutes}m ago';
+    } else if (diff.inDays < 1) {
+      timeStr = '${diff.inHours}h ago';
+    } else if (diff.inDays == 1) {
+      timeStr = 'Yesterday';
+    } else {
+      timeStr = '${diff.inDays}d ago';
+    }
+
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: color, size: 28),
-        const SizedBox(width: 16),
+        Icon(icon, color: color, size: 24),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 2),
-              Text(subtitle, style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
+              if (description.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: TextStyle(
+                    color: Theme.of(context).textTheme.bodySmall?.color,
+                    fontSize: 12,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ],
           ),
         ),
-        Text(time, style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12)),
+        const SizedBox(width: 8),
+        Text(
+          timeStr,
+          style: TextStyle(
+            color: Theme.of(context).textTheme.bodySmall?.color,
+            fontSize: 11,
+          ),
+        ),
       ],
     );
+  }
+
+  void _showFullControlHistory() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (context, scrollController) {
+          return Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                // Handle bar
+                Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                // Header
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  child: Row(
+                    children: [
+                      Icon(Icons.history, color: Colors.green[700], size: 28),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Full Control History',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                // List
+                Expanded(
+                  child: Consumer<SensorViewModel>(
+                    builder: (context, viewModel, child) {
+                      final logs = viewModel.activityLogs;
+
+                      if (logs.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.history, size: 64, color: Colors.grey[400]),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No Control History',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Activity will appear here as you control the system',
+                                style: TextStyle(color: Colors.grey[500]),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+
+                      return ListView.separated(
+                        controller: scrollController,
+                        padding: const EdgeInsets.all(16),
+                        itemCount: logs.length,
+                        separatorBuilder: (context, index) => const Divider(height: 24),
+                        itemBuilder: (context, index) {
+                          final log = logs[index];
+                          return _buildFullHistoryItem(log);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildFullHistoryItem(dynamic log) {
+    final title = log.title ?? 'System Activity';
+    final description = log.description ?? '';
+    final timestamp = log.timestamp;
+    final type = log.type ?? 'system';
+
+    // Get icon and color based on type
+    IconData icon;
+    Color color;
+
+    switch (type) {
+      case 'water_pump':
+        icon = Icons.water_damage_outlined;
+        color = Colors.blue;
+        break;
+      case 'nutrient_pump':
+        icon = Icons.opacity;
+        color = Colors.purple;
+        break;
+      case 'lights':
+        icon = Icons.lightbulb_outline;
+        color = Colors.amber;
+        break;
+      case 'fan':
+        icon = Icons.air;
+        color = Colors.teal;
+        break;
+      case 'emergency':
+        icon = Icons.emergency;
+        color = Colors.red;
+        break;
+      case 'schedule':
+        icon = Icons.schedule;
+        color = Colors.green;
+        break;
+      default:
+        icon = Icons.settings;
+        color = Colors.grey;
+    }
+
+    // Format date and time
+    final now = DateTime.now();
+    final diff = now.difference(timestamp);
+    final dateStr = _formatFullDate(timestamp);
+    final timeStr = _formatTime(timestamp);
+
+    String relativeTime;
+    if (diff.inMinutes < 1) {
+      relativeTime = 'Just now';
+    } else if (diff.inHours < 1) {
+      relativeTime = '${diff.inMinutes} minutes ago';
+    } else if (diff.inDays < 1) {
+      relativeTime = '${diff.inHours} hours ago';
+    } else if (diff.inDays == 1) {
+      relativeTime = 'Yesterday';
+    } else {
+      relativeTime = '$dateStr';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+                if (description.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      color: Theme.of(context).textTheme.bodySmall?.color,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.access_time, size: 14, color: Colors.grey[500]),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$relativeTime • $timeStr',
+                      style: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatFullDate(DateTime date) {
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
+  String _formatTime(DateTime date) {
+    final hour = date.hour;
+    final minute = date.minute.toString().padLeft(2, '0');
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+    return '$displayHour:$minute $period';
   }
 
   void _toggleActuator(SensorViewModel viewModel, ActuatorData actuatorData, String actuatorName, bool value) async {
