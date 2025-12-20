@@ -5,6 +5,7 @@ import '/widgets/main_layout.dart';
 import '../../viewmodels/sensor_viewmodel.dart';
 import '/services/tts_service.dart';
 import '/viewmodels/settings_viewmodel.dart';
+import '../../services/database_service.dart';
 
 class SensorScreen extends StatefulWidget {
   const SensorScreen({super.key});
@@ -15,9 +16,27 @@ class SensorScreen extends StatefulWidget {
 
 class _SensorScreenState extends State<SensorScreen> {
   DateTime _lastUpdate = DateTime.now();
+  Map<String, dynamic>? _thresholdProfile;
+  final DatabaseService _databaseService = DatabaseService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThresholdProfile();
+  }
+
+  Future<void> _loadThresholdProfile() async {
+    final profile = await _databaseService.getActiveProfile();
+    if (mounted) {
+      setState(() {
+        _thresholdProfile = profile;
+      });
+    }
+  }
 
   Future<void> _refreshSensors() async {
     await Future.delayed(const Duration(milliseconds: 500));
+    await _loadThresholdProfile(); // Reload thresholds on refresh
     if (mounted) {
       setState(() {
         _lastUpdate = DateTime.now();
@@ -155,8 +174,10 @@ class _SensorScreenState extends State<SensorScreen> {
                   value: sensorData.temperature,
                   unit: '°C',
                   icon: Icons.thermostat,
-                  min: 20.0,
-                  max: 30.0,
+                  min: (_thresholdProfile?['temp_min'] as num?)?.toDouble() ??
+                      20.0,
+                  max: (_thresholdProfile?['temp_max'] as num?)?.toDouble() ??
+                      30.0,
                 ),
 
                 // pH Sensor
@@ -165,8 +186,10 @@ class _SensorScreenState extends State<SensorScreen> {
                   value: sensorData.pH,
                   unit: 'pH',
                   icon: Icons.water_drop,
-                  min: 5.5,
-                  max: 7.5,
+                  min:
+                      (_thresholdProfile?['ph_min'] as num?)?.toDouble() ?? 5.5,
+                  max:
+                      (_thresholdProfile?['ph_max'] as num?)?.toDouble() ?? 7.5,
                 ),
 
                 // Water Level Sensor
@@ -175,8 +198,10 @@ class _SensorScreenState extends State<SensorScreen> {
                   value: sensorData.waterLevel,
                   unit: '%',
                   icon: Icons.waves,
-                  min: 30.0,
-                  max: 100.0,
+                  min: (_thresholdProfile?['water_min'] as num?)?.toDouble() ??
+                      30.0,
+                  max: (_thresholdProfile?['water_max'] as num?)?.toDouble() ??
+                      100.0,
                 ),
 
                 // TDS Sensor
@@ -185,8 +210,10 @@ class _SensorScreenState extends State<SensorScreen> {
                   value: sensorData.tds,
                   unit: 'ppm',
                   icon: Icons.electric_bolt,
-                  min: 500.0,
-                  max: 1500.0,
+                  min: (_thresholdProfile?['tds_min'] as num?)?.toDouble() ??
+                      500.0,
+                  max: (_thresholdProfile?['tds_max'] as num?)?.toDouble() ??
+                      1500.0,
                 ),
 
                 // Light Intensity Sensor
@@ -195,8 +222,10 @@ class _SensorScreenState extends State<SensorScreen> {
                   value: sensorData.lightIntensity,
                   unit: 'lux',
                   icon: Icons.wb_sunny,
-                  min: 0.0,
-                  max: 1000.0,
+                  min: (_thresholdProfile?['light_min'] as num?)?.toDouble() ??
+                      0.0,
+                  max: (_thresholdProfile?['light_max'] as num?)?.toDouble() ??
+                      1000.0,
                 ),
 
                 // Actuators Section

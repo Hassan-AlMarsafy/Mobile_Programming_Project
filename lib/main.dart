@@ -6,6 +6,7 @@ import 'viewmodels/sensor_viewmodel.dart';
 import 'viewmodels/auth_viewmodel.dart';
 import 'viewmodels/theme_viewmodel.dart';
 import 'viewmodels/settings_viewmodel.dart';
+import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 import 'screens/splash_screen.dart';
 import 'screens/auth_screen.dart';
@@ -24,6 +25,9 @@ void main() async {
 
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Initialize notification service
+  await NotificationService().initialize();
 
   runApp(
     MultiProvider(

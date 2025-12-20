@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/sensor_data.dart';
 import '../models/actuator_data.dart';
-import '../models/sensor_thresholds.dart';
 import '../models/sensor_calibration.dart';
 import '../models/user.dart';
 import '../models/notification_preferences.dart';
@@ -117,81 +116,6 @@ class FirestoreService {
     } catch (e) {
       print('Error setting system mode: $e');
     }
-  }
-
-  // ============ SENSOR THRESHOLDS METHODS ============
-
-  // Get sensor thresholds for a specific user
-  Future<SensorThresholds?> getSensorThresholds(String userId) async {
-    try {
-      final snapshot = await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('settings')
-          .doc('thresholds')
-          .get();
-
-      if (snapshot.exists && snapshot.data() != null) {
-        return SensorThresholds.fromJson(snapshot.data()!);
-      }
-      // Return default thresholds if none exist
-      return SensorThresholds.defaultThresholds();
-    } catch (e) {
-      return SensorThresholds.defaultThresholds();
-    }
-  }
-
-  // Save sensor thresholds for a specific user
-  Future<Map<String, dynamic>> saveSensorThresholds(
-      String userId, SensorThresholds thresholds) async {
-    try {
-      await _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('settings')
-          .doc('thresholds')
-          .set(thresholds.toJson());
-
-      return {'success': true, 'message': 'Thresholds updated successfully'};
-    } on FirebaseException catch (e) {
-      String errorMessage = 'Firebase error: ';
-      switch (e.code) {
-        case 'permission-denied':
-          errorMessage += 'Permission denied. Check Firestore rules.';
-          break;
-        case 'unavailable':
-          errorMessage += 'Network unavailable. Check internet connection.';
-          break;
-        case 'unauthenticated':
-          errorMessage += 'User not authenticated. Please sign in again.';
-          break;
-        default:
-          errorMessage += '${e.message}';
-      }
-      return {'success': false, 'message': errorMessage, 'error': e.toString()};
-    } catch (e) {
-      return {
-        'success': false,
-        'message': 'Unexpected error: ${e.toString()}',
-        'error': e.toString()
-      };
-    }
-  }
-
-  // Listen to sensor thresholds changes (real-time stream)
-  Stream<SensorThresholds?> getSensorThresholdsStream(String userId) {
-    return _firestore
-        .collection('users')
-        .doc(userId)
-        .collection('settings')
-        .doc('thresholds')
-        .snapshots()
-        .map((snapshot) {
-      if (snapshot.exists && snapshot.data() != null) {
-        return SensorThresholds.fromJson(snapshot.data()!);
-      }
-      return SensorThresholds.defaultThresholds();
-    });
   }
 
   // ============ SENSOR CALIBRATION METHODS ============

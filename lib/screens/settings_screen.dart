@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/validators.dart';
 import '../services/firestore_service.dart';
+import '../services/database_service.dart';
 import '../services/biometric_service.dart';
 import '../viewmodels/theme_viewmodel.dart';
 import '../models/sensor_thresholds.dart';
@@ -100,13 +101,28 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Future<void> _loadThresholds() async {
-    final user = firebase_auth.FirebaseAuth.instance.currentUser;
+    try {
+      final db = DatabaseService();
+      final profile = await db.getActiveProfile();
 
-    if (user != null) {
-      final thresholds = await _firestoreService.getSensorThresholds(user.uid);
-      if (thresholds != null) {
+      if (profile != null) {
+        // Convert SQLite profile to SensorThresholds for UI display
         setState(() {
-          _thresholds = thresholds;
+          _thresholds = SensorThresholds(
+            temperatureMin: (profile['temp_min'] as num?)?.toDouble() ?? 20.0,
+            temperatureMax: (profile['temp_max'] as num?)?.toDouble() ?? 30.0,
+            phMin: (profile['ph_min'] as num?)?.toDouble() ?? 5.5,
+            phMax: (profile['ph_max'] as num?)?.toDouble() ?? 7.5,
+            waterLevelMin: (profile['water_min'] as num?)?.toDouble() ?? 30.0,
+            waterLevelCritical:
+                (profile['water_min'] as num?)?.toDouble() ?? 20.0,
+            tdsMin: (profile['tds_min'] as num?)?.toDouble() ?? 500.0,
+            tdsMax: (profile['tds_max'] as num?)?.toDouble() ?? 1500.0,
+            lightIntensityMin:
+                (profile['light_min'] as num?)?.toDouble() ?? 200.0,
+            lightIntensityMax:
+                (profile['light_max'] as num?)?.toDouble() ?? 1000.0,
+          );
           _isLoadingThresholds = false;
         });
       } else {
@@ -114,15 +130,11 @@ class _SettingsScreenState extends State<SettingsScreen>
           _isLoadingThresholds = false;
         });
       }
-    } else {
+    } catch (e) {
       setState(() {
         _isLoadingThresholds = false;
       });
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          _showSnackBar('Please sign in to save settings');
-        }
-      });
+      print('Error loading thresholds: $e');
     }
   }
 
@@ -1044,7 +1056,6 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-
   void _showEditProfileDialog() {
     if (_userProfile == null) {
       _showSnackBar('Profile not loaded yet');
@@ -1632,7 +1643,6 @@ class _SettingsScreenState extends State<SettingsScreen>
     );
   }
 
-
   // ============ THRESHOLD DIALOGS ============
 
   void _showTemperatureThresholdDialog() {
@@ -2116,28 +2126,58 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Future<void> _saveThreshold(SensorThresholds thresholds) async {
-    final user = firebase_auth.FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      _showSnackBar('Not signed in. Please log in first.');
-      return;
-    }
-
     try {
-      final result = await _firestoreService.saveSensorThresholds(
-        user.uid,
-        thresholds,
-      );
+      final db = DatabaseService();
+      final activeProfile = await db.getActiveProfile();
 
-      if (result['success'] == true) {
+      if (activeProfile != null) {
+        // Update existing active profile with new thresholds
+        await db.updateThresholdProfile(
+          activeProfile['id'] as int,
+          {
+            'temp_min': thresholds.temperatureMin,
+            'temp_max': thresholds.temperatureMax,
+            'ph_min': thresholds.phMin,
+            'ph_max': thresholds.phMax,
+            'water_min': thresholds.waterLevelMin,
+            'water_max': 100.0,
+            'tds_min': thresholds.tdsMin,
+            'tds_max': thresholds.tdsMax,
+            'light_min': thresholds.lightIntensityMin,
+            'light_max': thresholds.lightIntensityMax,
+          },
+        );
+
         setState(() {
           _thresholds = thresholds;
         });
-        _showSnackBar(result['message']);
+
+        _showSnackBar('Thresholds saved successfully');
       } else {
-        _showSnackBar(result['message']);
+        // Create a new active profile with these thresholds
+        await db.addThresholdProfile({
+          'name': 'Default',
+          'temp_min': thresholds.temperatureMin,
+          'temp_max': thresholds.temperatureMax,
+          'ph_min': thresholds.phMin,
+          'ph_max': thresholds.phMax,
+          'water_min': thresholds.waterLevelMin,
+          'water_max': 100.0,
+          'tds_min': thresholds.tdsMin,
+          'tds_max': thresholds.tdsMax,
+          'light_min': thresholds.lightIntensityMin,
+          'light_max': thresholds.lightIntensityMax,
+          'is_active': 1,
+        });
+
+        setState(() {
+          _thresholds = thresholds;
+        });
+
+        _showSnackBar('Created new threshold profile');
       }
     } catch (e) {
+      print('Error saving thresholds: $e');
       _showSnackBar('Failed to save thresholds');
     }
   }

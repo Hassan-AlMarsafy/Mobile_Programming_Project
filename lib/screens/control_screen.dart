@@ -342,8 +342,7 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
       ],
     );
   }
-
-  // New Widget: Scheduling Card
+  
   Widget _buildSchedulingCard() {
     return Card(
       elevation: 2,
