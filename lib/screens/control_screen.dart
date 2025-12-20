@@ -22,10 +22,6 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
   late Animation<double> _fadeAnimation;
   Timer? _uiUpdateTimer;
 
-  // State for switches
-  bool _waterPumpState = true;
-  bool _nutrientPumpState = false;
-  bool _lightsState = true;
 
   // Speech recognition
   final SpeechService _speechService = SpeechService();
@@ -74,9 +70,16 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
     }
   }
 
-  void _processVoiceCommand(String command) {
+  void _processVoiceCommand(String command) async {
     setState(() => _lastCommand = command);
     final tts = TtsService();
+    final viewModel = context.read<SensorViewModel>();
+    final actuatorData = viewModel.actuatorData;
+
+    if (actuatorData == null) {
+      tts.speak('System not ready. Please try again.');
+      return;
+    }
 
     // Emergency stop
     if (command.contains('emergency') && command.contains('stop')) {
@@ -88,10 +91,10 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
     // Water pump control
     if (command.contains('water') && command.contains('pump')) {
       if (command.contains('turn on') || command.contains('start') || command.contains('on')) {
-        setState(() => _waterPumpState = true);
+        _toggleActuator(viewModel, actuatorData, 'waterPump', true);
         tts.speak('Water pump turned on');
       } else if (command.contains('turn off') || command.contains('stop') || command.contains('off')) {
-        setState(() => _waterPumpState = false);
+        _toggleActuator(viewModel, actuatorData, 'waterPump', false);
         tts.speak('Water pump turned off');
       }
       return;
@@ -101,10 +104,10 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
     if ((command.contains('nutrient') || command.contains('feeding')) && 
         (command.contains('pump') || command.contains('cycle'))) {
       if (command.contains('start') || command.contains('turn on') || command.contains('on')) {
-        setState(() => _nutrientPumpState = true);
+        _toggleActuator(viewModel, actuatorData, 'nutrientPump', true);
         tts.speak('Feeding cycle started');
       } else if (command.contains('end') || command.contains('stop') || command.contains('turn off') || command.contains('off')) {
-        setState(() => _nutrientPumpState = false);
+        _toggleActuator(viewModel, actuatorData, 'nutrientPump', false);
         tts.speak('Feeding cycle ended');
       }
       return;
@@ -113,11 +116,23 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
     // Light control
     if (command.contains('light')) {
       if (command.contains('increase') || command.contains('turn on') || command.contains('on')) {
-        setState(() => _lightsState = true);
+        _toggleActuator(viewModel, actuatorData, 'lights', true);
         tts.speak('Grow lights turned on');
       } else if (command.contains('decrease') || command.contains('turn off') || command.contains('off')) {
-        setState(() => _lightsState = false);
+        _toggleActuator(viewModel, actuatorData, 'lights', false);
         tts.speak('Grow lights turned off');
+      }
+      return;
+    }
+
+    // Fan control
+    if (command.contains('fan')) {
+      if (command.contains('turn on') || command.contains('start') || command.contains('on')) {
+        _toggleActuator(viewModel, actuatorData, 'fan', true);
+        tts.speak('Fan turned on');
+      } else if (command.contains('turn off') || command.contains('stop') || command.contains('off')) {
+        _toggleActuator(viewModel, actuatorData, 'fan', false);
+        tts.speak('Fan turned off');
       }
       return;
     }
@@ -149,12 +164,6 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
       type: 'emergency',
     );
 
-    // Update local state
-    setState(() {
-      _waterPumpState = false;
-      _nutrientPumpState = false;
-      _lightsState = false;
-    });
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
