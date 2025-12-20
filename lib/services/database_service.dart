@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/sensor_data.dart';
 import '../models/actuator_data.dart';
+import '../models/sensor_calibration.dart';
 
 class DatabaseService {
   static final DatabaseService _instance = DatabaseService._internal();
@@ -22,7 +23,7 @@ class DatabaseService {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -99,6 +100,20 @@ class DatabaseService {
           'is_active': 1,
         });
       }
+    }
+
+    // Migration from version 2 to 3: add calibration table
+    if (oldVersion < 3) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS sensor_calibration (
+          sensor_type TEXT PRIMARY KEY,
+          offset REAL,
+          last_calibrated INTEGER,
+          next_calibration_due INTEGER,
+          calibration_interval_days INTEGER,
+          last_updated INTEGER
+        )
+      ''');
     }
   }
 
@@ -179,6 +194,18 @@ class DatabaseService {
         payload TEXT,
         created_at INTEGER,
         synced INTEGER DEFAULT 0
+      )
+    ''');
+
+    // Sensor calibration data
+    await db.execute('''
+      CREATE TABLE sensor_calibration (
+        sensor_type TEXT PRIMARY KEY,
+        offset REAL,
+        last_calibrated INTEGER,
+        next_calibration_due INTEGER,
+        calibration_interval_days INTEGER,
+        last_updated INTEGER
       )
     ''');
 
@@ -516,5 +543,132 @@ class DatabaseService {
     await db.delete('cached_actuator_data');
     await db.delete('alert_history');
     await db.delete('command_queue');
+  }
+
+  // ============ SENSOR CALIBRATION ============
+
+  /// Save or update calibration for a specific sensor
+  Future<void> saveSensorCalibration(SensorCalibration calibration) async {
+    final db = await database;
+
+    await db.insert(
+      'sensor_calibration',
+      {
+        'sensor_type': calibration.sensorType,
+        'offset': calibration.offset,
+        'last_calibrated': calibration.lastCalibrated?.millisecondsSinceEpoch,
+        'next_calibration_due': calibration.nextCalibrationDue?.millisecondsSinceEpoch,
+        'calibration_interval_days': calibration.calibrationIntervalDays,
+        'last_updated': DateTime.now().millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Save entire system calibration
+  Future<void> saveSystemCalibration(SystemCalibration systemCalibration) async {
+    final db = await database;
+
+    // Save each sensor calibration
+    for (var entry in systemCalibration.sensors.entries) {
+      await db.insert(
+        'sensor_calibration',
+        {
+          'sensor_type': entry.key,
+          'offset': entry.value.offset,
+          'last_calibrated': entry.value.lastCalibrated?.millisecondsSinceEpoch,
+          'next_calibration_due': entry.value.nextCalibrationDue?.millisecondsSinceEpoch,
+          'calibration_interval_days': entry.value.calibrationIntervalDays,
+          'last_updated': DateTime.now().millisecondsSinceEpoch,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+  }
+
+  /// Get calibration for a specific sensor
+  Future<SensorCalibration?> getSensorCalibration(String sensorType) async {
+    final db = await database;
+
+    final results = await db.query(
+      'sensor_calibration',
+      where: 'sensor_type = ?',
+      whereArgs: [sensorType],
+      limit: 1,
+    );
+
+    if (results.isEmpty) return null;
+
+    final data = results.first;
+    return SensorCalibration(
+      sensorType: data['sensor_type'] as String,
+      offset: (data['offset'] as num).toDouble(),
+      lastCalibrated: data['last_calibrated'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(data['last_calibrated'] as int)
+          : null,
+      nextCalibrationDue: data['next_calibration_due'] != null
+          ? DateTime.fromMillisecondsSinceEpoch(data['next_calibration_due'] as int)
+          : null,
+      calibrationIntervalDays: data['calibration_interval_days'] as int,
+    );
+  }
+
+  /// Get entire system calibration
+  Future<SystemCalibration> getSystemCalibration() async {
+    final db = await database;
+
+    final results = await db.query('sensor_calibration');
+
+    if (results.isEmpty) {
+      // Return default calibration if none exist
+      return SystemCalibration.defaultCalibration();
+    }
+
+    final Map<String, SensorCalibration> sensors = {};
+
+    for (var data in results) {
+      final sensorType = data['sensor_type'] as String;
+      sensors[sensorType] = SensorCalibration(
+        sensorType: sensorType,
+        offset: (data['offset'] as num).toDouble(),
+        lastCalibrated: data['last_calibrated'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(data['last_calibrated'] as int)
+            : null,
+        nextCalibrationDue: data['next_calibration_due'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(data['next_calibration_due'] as int)
+            : null,
+        calibrationIntervalDays: data['calibration_interval_days'] as int,
+      );
+    }
+
+    // Get the most recent update time
+    final latestUpdate = results
+        .map((row) => row['last_updated'] as int?)
+        .where((time) => time != null)
+        .fold<int?>(null, (prev, current) =>
+            prev == null || current! > prev ? current : prev);
+
+    return SystemCalibration(
+      sensors: sensors,
+      lastUpdated: latestUpdate != null
+          ? DateTime.fromMillisecondsSinceEpoch(latestUpdate)
+          : null,
+    );
+  }
+
+  /// Delete calibration for a specific sensor
+  Future<void> deleteSensorCalibration(String sensorType) async {
+    final db = await database;
+    await db.delete(
+      'sensor_calibration',
+      where: 'sensor_type = ?',
+      whereArgs: [sensorType],
+    );
+  }
+
+  /// Clear all calibration data
+  Future<void> clearAllCalibrations() async {
+    final db = await database;
+    await db.delete('sensor_calibration');
   }
 }

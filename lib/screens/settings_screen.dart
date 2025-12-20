@@ -9,6 +9,8 @@ import '../services/firestore_service.dart';
 import '../services/database_service.dart';
 import '../services/biometric_service.dart';
 import '../viewmodels/theme_viewmodel.dart';
+import '../viewmodels/settings_viewmodel.dart';
+import '../viewmodels/sensor_viewmodel.dart';
 import '../models/sensor_thresholds.dart';
 import '../models/sensor_calibration.dart';
 import '../models/user.dart';
@@ -139,25 +141,47 @@ class _SettingsScreenState extends State<SettingsScreen>
   }
 
   Future<void> _loadCalibration() async {
-    final user = firebase_auth.FirebaseAuth.instance.currentUser;
+    try {
+      // First, try to load from SQLite (offline-first)
+      final localCalibration = await DatabaseService().getSystemCalibration();
 
-    if (user != null) {
-      final calibration =
-          await _firestoreService.getSystemCalibration(user.uid);
-      if (calibration != null) {
+      // If we have local data, use it
+      if (localCalibration.sensors.isNotEmpty) {
         setState(() {
-          _calibration = calibration;
+          _calibration = localCalibration;
           _isLoadingCalibration = false;
         });
+      }
+
+      // Then try to sync with Firebase if user is logged in
+      final user = firebase_auth.FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final firebaseCalibration =
+            await _firestoreService.getSystemCalibration(user.uid);
+
+        if (firebaseCalibration != null) {
+          // Save to SQLite for offline access
+          await DatabaseService().saveSystemCalibration(firebaseCalibration);
+
+          setState(() {
+            _calibration = firebaseCalibration;
+            _isLoadingCalibration = false;
+          });
+        } else {
+          setState(() {
+            _isLoadingCalibration = false;
+          });
+        }
       } else {
         setState(() {
           _isLoadingCalibration = false;
         });
       }
-    } else {
+    } catch (e) {
       setState(() {
         _isLoadingCalibration = false;
       });
+      print('Error loading calibration: $e');
     }
   }
 
@@ -2419,28 +2443,40 @@ class _SettingsScreenState extends State<SettingsScreen>
     String sensorType,
     SensorCalibration calibration,
   ) async {
-    final user = firebase_auth.FirebaseAuth.instance.currentUser;
-
-    if (user == null) {
-      _showSnackBar('Not signed in. Please log in first.');
-      return;
-    }
-
     try {
       final updatedSystem = _calibration.updateSensor(sensorType, calibration);
-      final result = await _firestoreService.saveSystemCalibration(
-          user.uid, updatedSystem);
 
-      if (result['success'] == true) {
-        setState(() {
-          _calibration = updatedSystem;
-        });
-        _showSnackBar(result['message']);
+      // Save to SQLite first (works offline)
+      await DatabaseService().saveSystemCalibration(updatedSystem);
+
+      // Update local state immediately
+      setState(() {
+        _calibration = updatedSystem;
+      });
+
+      // Refresh calibration in SensorViewModel to apply to all screens
+      if (mounted) {
+        final sensorViewModel = Provider.of<SensorViewModel>(context, listen: false);
+        await sensorViewModel.refreshCalibration();
+      }
+
+      // Then try to sync with Firebase if user is logged in
+      final user = firebase_auth.FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final result = await _firestoreService.saveSystemCalibration(
+            user.uid, updatedSystem);
+
+        if (result['success'] == true) {
+          _showSnackBar(result['message']);
+        } else {
+          _showSnackBar('Saved locally. ${result['message']}');
+        }
       } else {
-        _showSnackBar(result['message']);
+        _showSnackBar('Calibration saved locally (offline mode)');
       }
     } catch (e) {
-      _showSnackBar('Failed to save calibration');
+      _showSnackBar('Failed to save calibration: $e');
+      print('Error saving calibration: $e');
     }
   }
 

@@ -5,6 +5,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/sensor_data.dart';
 import '../models/actuator_data.dart';
 import '../models/activity_log.dart';
+import '../models/sensor_calibration.dart';
 import '../services/firestore_service.dart';
 import '../services/database_service.dart';
 import '../services/notification_service.dart';
@@ -23,6 +24,10 @@ class SensorViewModel extends ChangeNotifier {
 
   // Sensor data
   SensorData? sensorData;
+  SensorData? _rawSensorData; // Store raw data before calibration
+
+  // Calibration data
+  SystemCalibration? _calibration;
 
   // Actuator data
   ActuatorData? actuatorData;
@@ -48,6 +53,7 @@ class SensorViewModel extends ChangeNotifier {
   SensorViewModel() {
     _initConnectivity();
     _listenToFirebaseData();
+    _loadCalibration();
   }
 
   void _initConnectivity() {
@@ -124,20 +130,25 @@ class SensorViewModel extends ChangeNotifier {
       data,
     ) {
       if (data != null) {
-        sensorData = data;
+        // Store raw data
+        _rawSensorData = data;
+
+        // Apply calibration to get calibrated sensor data
+        sensorData = _applyCalibratedData(data);
+
         loading = false;
         lastSyncTime = data.timestamp;
         notifyListeners();
 
-        // Cache to SQLite for offline mode
-        _databaseService.cacheSensorData(data);
-        _databaseService.addSensorHistory(data);
+        // Cache CALIBRATED data to SQLite for offline mode
+        _databaseService.cacheSensorData(sensorData!);
+        _databaseService.addSensorHistory(sensorData!);
 
-        // Check thresholds and generate alerts
-        _checkThresholdsAndAlert(data);
+        // Check thresholds and generate alerts using CALIBRATED data
+        _checkThresholdsAndAlert(sensorData!);
 
         print(
-            'Sensor data updated: Temp=${data.temperature}°C, pH=${data.pH}, Water=${data.waterLevel}%, Light=${data.lightIntensity} lux');
+            'Sensor data updated (calibrated): Temp=${sensorData!.temperature.toStringAsFixed(1)}°C, pH=${sensorData!.pH.toStringAsFixed(2)}, Water=${sensorData!.waterLevel.toStringAsFixed(1)}%, Light=${sensorData!.lightIntensity.toStringAsFixed(0)} lux');
 
         // Run automatic control logic when sensor data updates
         if (isAutomaticMode) {
@@ -483,6 +494,53 @@ class SensorViewModel extends ChangeNotifier {
         severityCalculator: (value, threshold) => 'warning',
       );
     }
+  }
+
+  // ============ CALIBRATION ============
+
+  /// Load calibration data from database
+  Future<void> _loadCalibration() async {
+    try {
+      final calibration = await _databaseService.getSystemCalibration();
+      _calibration = calibration;
+
+      // If we have raw sensor data, reapply calibration
+      if (_rawSensorData != null) {
+        sensorData = _applyCalibratedData(_rawSensorData!);
+        notifyListeners();
+      }
+
+      print('📊 Calibration loaded: ${calibration.sensors.length} sensors');
+    } catch (e) {
+      print('Error loading calibration: $e');
+    }
+  }
+
+  /// Refresh calibration (call this when calibration is updated in settings)
+  Future<void> refreshCalibration() async {
+    await _loadCalibration();
+  }
+
+  /// Apply calibration offsets to raw sensor data
+  SensorData _applyCalibratedData(SensorData raw) {
+    if (_calibration == null) return raw;
+
+    // Get calibration offsets for each sensor
+    final tempOffset = _calibration!.getSensor('temperature')?.offset ?? 0.0;
+    final waterOffset = _calibration!.getSensor('waterLevel')?.offset ?? 0.0;
+    final phOffset = _calibration!.getSensor('ph')?.offset ?? 0.0;
+    final tdsOffset = _calibration!.getSensor('tds')?.offset ?? 0.0;
+    final lightOffset = _calibration!.getSensor('light')?.offset ?? 0.0;
+
+    // Apply offsets to create calibrated data
+    return SensorData(
+      temperature: raw.temperature + tempOffset,
+      pH: raw.pH + phOffset,
+      waterLevel: (raw.waterLevel + waterOffset).clamp(0.0, 100.0), // Keep within 0-100%
+      tds: (raw.tds + tdsOffset).clamp(0.0, double.infinity), // Can't be negative
+      lightIntensity: (raw.lightIntensity + lightOffset).clamp(0.0, double.infinity), // Can't be negative
+      timestamp: raw.timestamp,
+    );
   }
 
   @override
