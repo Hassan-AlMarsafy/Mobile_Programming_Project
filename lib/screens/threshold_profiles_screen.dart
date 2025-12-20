@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hydroponic_app/theme/app_theme.dart';
 import '../services/database_service.dart';
 
 class ThresholdProfilesScreen extends StatefulWidget {
@@ -34,7 +35,9 @@ class _ThresholdProfilesScreenState extends State<ThresholdProfilesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Threshold Profiles'),
-        backgroundColor: Colors.green[700],
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? AppTheme.darkPrimaryColor
+            : AppTheme.primaryColor,
         foregroundColor: Colors.white,
       ),
       floatingActionButton: FloatingActionButton(
@@ -168,9 +171,17 @@ class _ThresholdProfilesScreenState extends State<ThresholdProfilesScreen> {
                   _buildThresholdChip('pH',
                       '${profile['ph_min']}-${profile['ph_max']}', Colors.blue),
                   _buildThresholdChip(
+                      'Water',
+                      '${profile['water_min']?.toInt()}-${profile['water_max']?.toInt()}%',
+                      Colors.cyan),
+                  _buildThresholdChip(
                       'TDS',
                       '${profile['tds_min']?.toInt()}-${profile['tds_max']?.toInt()}',
                       Colors.purple),
+                  _buildThresholdChip(
+                      'Light',
+                      '${profile['light_min']?.toInt()}-${profile['light_max']?.toInt()}',
+                      Colors.amber),
                 ],
               ),
             ],
@@ -299,10 +310,18 @@ class _ThresholdProfilesScreenState extends State<ThresholdProfilesScreen> {
         text: existingProfile?['ph_min']?.toString() ?? '5.5');
     final phMaxController = TextEditingController(
         text: existingProfile?['ph_max']?.toString() ?? '6.5');
+    final waterMinController = TextEditingController(
+        text: existingProfile?['water_min']?.toInt().toString() ?? '20');
+    final waterMaxController = TextEditingController(
+        text: existingProfile?['water_max']?.toInt().toString() ?? '100');
     final tdsMinController = TextEditingController(
         text: existingProfile?['tds_min']?.toInt().toString() ?? '800');
     final tdsMaxController = TextEditingController(
         text: existingProfile?['tds_max']?.toInt().toString() ?? '1500');
+    final lightMinController = TextEditingController(
+        text: existingProfile?['light_min']?.toInt().toString() ?? '200');
+    final lightMaxController = TextEditingController(
+        text: existingProfile?['light_max']?.toInt().toString() ?? '1000');
 
     showDialog(
       context: context,
@@ -316,14 +335,20 @@ class _ThresholdProfilesScreenState extends State<ThresholdProfilesScreen> {
                 controller: nameController,
                 decoration: const InputDecoration(labelText: 'Profile Name'),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Temperature (°C)',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+              ),
               Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: tempMinController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Temp Min'),
+                      decoration: const InputDecoration(labelText: 'Min'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -331,19 +356,25 @@ class _ThresholdProfilesScreenState extends State<ThresholdProfilesScreen> {
                     child: TextField(
                       controller: tempMaxController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'Temp Max'),
+                      decoration: const InputDecoration(labelText: 'Max'),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text('pH Level',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+              ),
               Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: phMinController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'pH Min'),
+                      decoration: const InputDecoration(labelText: 'Min'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -351,19 +382,51 @@ class _ThresholdProfilesScreenState extends State<ThresholdProfilesScreen> {
                     child: TextField(
                       controller: phMaxController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'pH Max'),
+                      decoration: const InputDecoration(labelText: 'Max'),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Water Level (%)',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: waterMinController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Min'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: waterMaxController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Max'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text('TDS (ppm)',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+              ),
               Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: tdsMinController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'TDS Min'),
+                      decoration: const InputDecoration(labelText: 'Min'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -371,7 +434,33 @@ class _ThresholdProfilesScreenState extends State<ThresholdProfilesScreen> {
                     child: TextField(
                       controller: tdsMaxController,
                       keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'TDS Max'),
+                      decoration: const InputDecoration(labelText: 'Max'),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Light Intensity (lux)',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+              ),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: lightMinController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Min'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      controller: lightMaxController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'Max'),
                     ),
                   ),
                 ],
@@ -392,12 +481,12 @@ class _ThresholdProfilesScreenState extends State<ThresholdProfilesScreen> {
                 'temp_max': double.tryParse(tempMaxController.text) ?? 28,
                 'ph_min': double.tryParse(phMinController.text) ?? 5.5,
                 'ph_max': double.tryParse(phMaxController.text) ?? 6.5,
-                'water_min': 20.0,
-                'water_max': 100.0,
+                'water_min': double.tryParse(waterMinController.text) ?? 20.0,
+                'water_max': double.tryParse(waterMaxController.text) ?? 100.0,
                 'tds_min': double.tryParse(tdsMinController.text) ?? 800,
                 'tds_max': double.tryParse(tdsMaxController.text) ?? 1500,
-                'light_min': 200.0,
-                'light_max': 1000.0,
+                'light_min': double.tryParse(lightMinController.text) ?? 200.0,
+                'light_max': double.tryParse(lightMaxController.text) ?? 1000.0,
                 'is_active': 0,
               };
 

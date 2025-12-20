@@ -608,30 +608,6 @@ class _SettingsScreenState extends State<SettingsScreen>
                               calibration: _calibration.getSensor('light'),
                               iconColor: Colors.orange,
                             ),
-                            Divider(height: 1, color: Colors.grey[200]),
-                            Consumer<SettingsViewModel>(
-                              builder: (context, settings, _) =>
-                                  _buildSwitchTile(
-                                icon: Icons.volume_up,
-                                title: 'Text-to-Speech',
-                                subtitle: 'Enable voice announcements',
-                                value: settings.ttsEnabled,
-                                onChanged: (val) => settings.setTtsEnabled(val),
-                                iconColor: Colors.deepPurple,
-                              ),
-                            ),
-                            Divider(height: 1, color: Colors.grey[200]),
-                            Consumer<SettingsViewModel>(
-                              builder: (context, settings, _) =>
-                                  _buildSwitchTile(
-                                icon: Icons.mic,
-                                title: 'Speech Recognition',
-                                subtitle: 'Enable voice commands',
-                                value: settings.srEnabled,
-                                onChanged: (val) => settings.setSrEnabled(val),
-                                iconColor: Colors.red,
-                              ),
-                            ),
                           ],
                         ),
                       ),
@@ -669,6 +645,30 @@ class _SettingsScreenState extends State<SettingsScreen>
                               subtitle: 'Test text-to-speech',
                               iconColor: Colors.deepPurple,
                               onTap: () => _showTtsDialog(),
+                            ),
+                            Divider(height: 1, color: Colors.grey[200]),
+                            Consumer<SettingsViewModel>(
+                              builder: (context, settings, _) =>
+                                  _buildSwitchTile(
+                                icon: Icons.record_voice_over,
+                                title: 'Text-to-Speech',
+                                subtitle: 'Enable voice announcements',
+                                value: settings.ttsEnabled,
+                                onChanged: (val) => settings.setTtsEnabled(val),
+                                iconColor: Colors.deepPurple,
+                              ),
+                            ),
+                            Divider(height: 1, color: Colors.grey[200]),
+                            Consumer<SettingsViewModel>(
+                              builder: (context, settings, _) =>
+                                  _buildSwitchTile(
+                                icon: Icons.mic,
+                                title: 'Speech Recognition',
+                                subtitle: 'Enable voice commands',
+                                value: settings.srEnabled,
+                                onChanged: (val) => settings.setSrEnabled(val),
+                                iconColor: Colors.red,
+                              ),
                             ),
                             Divider(height: 1, color: Colors.grey[200]),
                             _buildNavigationTile(
@@ -2456,7 +2456,8 @@ class _SettingsScreenState extends State<SettingsScreen>
 
       // Refresh calibration in SensorViewModel to apply to all screens
       if (mounted) {
-        final sensorViewModel = Provider.of<SensorViewModel>(context, listen: false);
+        final sensorViewModel =
+            Provider.of<SensorViewModel>(context, listen: false);
         await sensorViewModel.refreshCalibration();
       }
 
