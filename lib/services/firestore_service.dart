@@ -414,4 +414,27 @@ class FirestoreService {
       print('Error logging activity: $e');
     }
   }
+
+  // Save alert to Firestore
+  Future<void> saveAlert({
+    required String userId,
+    required String title,
+    required String message,
+    required String category,
+    required String severity,
+  }) async {
+    try {
+      await _firestore.collection('alerts').add({
+        'userId': userId,
+        'title': title,
+        'message': message,
+        'category': category,
+        'severity': severity,
+        'timestamp': DateTime.now().toIso8601String(),
+        'read': false,
+      });
+    } catch (e) {
+      print('Error saving alert: $e');
+    }
+  }
 }
