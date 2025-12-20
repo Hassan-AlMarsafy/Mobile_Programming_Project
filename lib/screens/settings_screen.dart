@@ -17,7 +17,6 @@ import '../models/user.dart';
 import 'notification_settings_screen.dart';
 import 'watering_schedule_screen.dart';
 import '../services/tts_service.dart';
-import '../viewmodels/settings_viewmodel.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
