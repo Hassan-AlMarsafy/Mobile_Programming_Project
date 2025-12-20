@@ -6,7 +6,15 @@ class SensorCard extends StatelessWidget {
   final String title;
   final String value;
   final SensorStatus status;
-  const SensorCard({super.key, required this.title, required this.value, required this.status});
+  final String lastUpdated;
+
+  const SensorCard({
+    super.key,
+    required this.title,
+    required this.value,
+    required this.status,
+    required this.lastUpdated,
+  });
 
   Color _statusColor() {
     switch (status) {
@@ -30,14 +38,18 @@ class SensorCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                Text(title,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
                 Icon(Icons.circle, color: _statusColor(), size: 14),
               ],
             ),
             const SizedBox(height: 8),
-            Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(value,
+                style:
+                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text('Last: 10:15', style: TextStyle(color: Colors.grey[600])),
+            Text('Last: $lastUpdated',
+                style: TextStyle(color: Colors.grey[600])),
           ],
         ),
       ),
@@ -50,7 +62,12 @@ class SensorDetailTile extends StatelessWidget {
   final String value;
   final String lastUpdated;
   final SensorStatus status;
-  const SensorDetailTile({super.key, required this.title, required this.value, required this.lastUpdated, required this.status});
+  const SensorDetailTile(
+      {super.key,
+      required this.title,
+      required this.value,
+      required this.lastUpdated,
+      required this.status});
 
   @override
   Widget build(BuildContext context) {
@@ -69,10 +86,13 @@ class SensorDetailTile extends StatelessWidget {
 
     return Card(
       child: ListTile(
-        leading: CircleAvatar(backgroundColor: color.withOpacity(0.15), child: Icon(Icons.sensors, color: color)),
+        leading: CircleAvatar(
+            backgroundColor: color.withOpacity(0.15),
+            child: Icon(Icons.sensors, color: color)),
         title: Text(title),
         subtitle: Text('Value: $value • Updated: $lastUpdated'),
-        trailing: IconButton(icon: const Icon(Icons.chevron_right), onPressed: () {}),
+        trailing:
+            IconButton(icon: const Icon(Icons.chevron_right), onPressed: () {}),
       ),
     );
   }

@@ -9,6 +9,7 @@ import '../widgets/offline_banner.dart';
 import '../models/actuator_data.dart';
 import '../services/tts_service.dart';
 import '../services/firestore_service.dart';
+import '../services/database_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -23,9 +24,37 @@ class _DashboardScreenState extends State<DashboardScreen>
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
+  // Threshold data from SQLite
+  Map<String, dynamic>? _thresholdProfile;
+
+  // Threshold getters with fallback defaults
+  double get _tempMin =>
+      (_thresholdProfile?['temp_min'] as num?)?.toDouble() ?? 20.0;
+  double get _tempMax =>
+      (_thresholdProfile?['temp_max'] as num?)?.toDouble() ?? 30.0;
+  double get _phMin =>
+      (_thresholdProfile?['ph_min'] as num?)?.toDouble() ?? 5.5;
+  double get _phMax =>
+      (_thresholdProfile?['ph_max'] as num?)?.toDouble() ?? 7.5;
+  double get _waterMin =>
+      (_thresholdProfile?['water_min'] as num?)?.toDouble() ?? 20.0;
+  double get _waterMax =>
+      (_thresholdProfile?['water_max'] as num?)?.toDouble() ?? 100.0;
+  double get _tdsMin =>
+      (_thresholdProfile?['tds_min'] as num?)?.toDouble() ?? 500.0;
+  double get _tdsMax =>
+      (_thresholdProfile?['tds_max'] as num?)?.toDouble() ?? 1500.0;
+  double get _lightMin =>
+      (_thresholdProfile?['light_min'] as num?)?.toDouble() ?? 200.0;
+  double get _lightMax =>
+      (_thresholdProfile?['light_max'] as num?)?.toDouble() ?? 1000.0;
+
   @override
   void initState() {
     super.initState();
+
+    // Load thresholds from SQLite
+    _loadThresholds();
 
     // Initialize animations
     _animationController = AnimationController(
@@ -39,10 +68,19 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     _slideAnimation =
         Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
-          CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
-        );
+      CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
+    );
 
     _animationController.forward();
+  }
+
+  Future<void> _loadThresholds() async {
+    final profile = await DatabaseService().getActiveProfile();
+    if (mounted && profile != null) {
+      setState(() {
+        _thresholdProfile = profile;
+      });
+    }
   }
 
   @override
@@ -54,7 +92,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   Widget build(BuildContext context) {
     final settingsViewModel = context.watch<SettingsViewModel>();
-    
+
     return MainLayout(
       title: 'Dashboard',
       currentIndex: 0,
@@ -92,7 +130,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                   Consumer<SensorViewModel>(
                     builder: (context, viewModel, child) {
                       if (viewModel.isOffline) {
-                        return OfflineBanner(lastSyncTime: viewModel.lastSyncTime);
+                        return OfflineBanner(
+                            lastSyncTime: viewModel.lastSyncTime);
                       }
                       return const SizedBox.shrink();
                     },
@@ -214,23 +253,30 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   '${sensorData.temperature.toStringAsFixed(1)}°C',
                               status: _getSensorStatus(
                                 sensorData.temperature,
-                                20,
-                                40,
+                                _tempMin,
+                                _tempMax,
                               ),
+                              lastUpdated:
+                                  _formatSensorTime(sensorData.timestamp),
                             ),
                             SensorCard(
                               title: 'pH Level',
                               value: sensorData.pH.toStringAsFixed(1),
-                              status: _getSensorStatus(sensorData.pH, 5.5, 7.5),
+                              status: _getSensorStatus(
+                                  sensorData.pH, _phMin, _phMax),
+                              lastUpdated:
+                                  _formatSensorTime(sensorData.timestamp),
                             ),
                             SensorCard(
                               title: 'TDS',
                               value: '${sensorData.tds.toStringAsFixed(0)} ppm',
                               status: _getSensorStatus(
                                 sensorData.tds,
-                                500,
-                                1500,
+                                _tdsMin,
+                                _tdsMax,
                               ),
+                              lastUpdated:
+                                  _formatSensorTime(sensorData.timestamp),
                             ),
                             SensorCard(
                               title: 'Water Level',
@@ -238,9 +284,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   '${sensorData.waterLevel.toStringAsFixed(0)}%',
                               status: _getSensorStatus(
                                 sensorData.waterLevel,
-                                30,
-                                100,
+                                _waterMin,
+                                _waterMax,
                               ),
+                              lastUpdated:
+                                  _formatSensorTime(sensorData.timestamp),
                             ),
                           ],
                         ),
@@ -322,41 +370,59 @@ class _DashboardScreenState extends State<DashboardScreen>
         int warnings = 0;
         int normalSensors = 0;
         const int totalSensors = 5;
-        
+
         if (sensorData != null) {
-          final tempStatus = _getSensorStatus(sensorData.temperature, 20, 30);
-          final phStatus = _getSensorStatus(sensorData.pH, 5.5, 7.5);
-          final tdsStatus = _getSensorStatus(sensorData.tds, 500, 1500);
-          final waterStatus = _getSensorStatus(sensorData.waterLevel, 30, 100);
-          final lightStatus = _getSensorStatus(sensorData.lightIntensity, 0, 1000);
-          
+          final tempStatus =
+              _getSensorStatus(sensorData.temperature, _tempMin, _tempMax);
+          final phStatus = _getSensorStatus(sensorData.pH, _phMin, _phMax);
+          final tdsStatus = _getSensorStatus(sensorData.tds, _tdsMin, _tdsMax);
+          final waterStatus =
+              _getSensorStatus(sensorData.waterLevel, _waterMin, _waterMax);
+          final lightStatus =
+              _getSensorStatus(sensorData.lightIntensity, _lightMin, _lightMax);
+
           // Count issues
-          if (tempStatus == SensorStatus.critical) criticalIssues++;
-          else if (tempStatus == SensorStatus.warning) warnings++;
-          else normalSensors++;
-          
-          if (phStatus == SensorStatus.critical) criticalIssues++;
-          else if (phStatus == SensorStatus.warning) warnings++;
-          else normalSensors++;
-          
-          if (tdsStatus == SensorStatus.critical) criticalIssues++;
-          else if (tdsStatus == SensorStatus.warning) warnings++;
-          else normalSensors++;
-          
-          if (waterStatus == SensorStatus.critical) criticalIssues++;
-          else if (waterStatus == SensorStatus.warning) warnings++;
-          else normalSensors++;
-          
-          if (lightStatus == SensorStatus.critical) criticalIssues++;
-          else if (lightStatus == SensorStatus.warning) warnings++;
-          else normalSensors++;
+          if (tempStatus == SensorStatus.critical)
+            criticalIssues++;
+          else if (tempStatus == SensorStatus.warning)
+            warnings++;
+          else
+            normalSensors++;
+
+          if (phStatus == SensorStatus.critical)
+            criticalIssues++;
+          else if (phStatus == SensorStatus.warning)
+            warnings++;
+          else
+            normalSensors++;
+
+          if (tdsStatus == SensorStatus.critical)
+            criticalIssues++;
+          else if (tdsStatus == SensorStatus.warning)
+            warnings++;
+          else
+            normalSensors++;
+
+          if (waterStatus == SensorStatus.critical)
+            criticalIssues++;
+          else if (waterStatus == SensorStatus.warning)
+            warnings++;
+          else
+            normalSensors++;
+
+          if (lightStatus == SensorStatus.critical)
+            criticalIssues++;
+          else if (lightStatus == SensorStatus.warning)
+            warnings++;
+          else
+            normalSensors++;
         }
 
         // Calculate health percentage
-        int healthPercentage = sensorData != null 
-            ? ((normalSensors / totalSensors) * 100).round() 
+        int healthPercentage = sensorData != null
+            ? ((normalSensors / totalSensors) * 100).round()
             : 0;
-        
+
         // Sensors connected count
         int connectedSensors = sensorData != null ? totalSensors : 0;
 
@@ -459,7 +525,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     child: _buildStatusMetric(
                       icon: Icons.schedule,
                       label: 'Updated',
-                      value: sensorData != null 
+                      value: sensorData != null
                           ? _formatTime(sensorData.timestamp)
                           : 'N/A',
                     ),
@@ -485,25 +551,29 @@ class _DashboardScreenState extends State<DashboardScreen>
                       icon: Icons.water_drop,
                       label: 'Water',
                       isActive: actuatorData.waterPump,
-                      onTap: () => _toggleActuator(viewModel, actuatorData, 'waterPump'),
+                      onTap: () =>
+                          _toggleActuator(viewModel, actuatorData, 'waterPump'),
                     ),
                     _buildActuatorIndicator(
                       icon: Icons.science,
                       label: 'Nutrients',
                       isActive: actuatorData.nutrientPump,
-                      onTap: () => _toggleActuator(viewModel, actuatorData, 'nutrientPump'),
+                      onTap: () => _toggleActuator(
+                          viewModel, actuatorData, 'nutrientPump'),
                     ),
                     _buildActuatorIndicator(
                       icon: Icons.lightbulb,
                       label: 'Lights',
                       isActive: actuatorData.lights,
-                      onTap: () => _toggleActuator(viewModel, actuatorData, 'lights'),
+                      onTap: () =>
+                          _toggleActuator(viewModel, actuatorData, 'lights'),
                     ),
                     _buildActuatorIndicator(
                       icon: Icons.air,
                       label: 'Fan',
                       isActive: actuatorData.fan,
-                      onTap: () => _toggleActuator(viewModel, actuatorData, 'fan'),
+                      onTap: () =>
+                          _toggleActuator(viewModel, actuatorData, 'fan'),
                     ),
                   ],
                 ),
@@ -528,12 +598,12 @@ class _DashboardScreenState extends State<DashboardScreen>
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: isActive 
+              color: isActive
                   ? Colors.white.withOpacity(0.3)
                   : Colors.white.withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: isActive 
+                color: isActive
                     ? Colors.white.withOpacity(0.5)
                     : Colors.white.withOpacity(0.2),
                 width: 2,
@@ -559,7 +629,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  void _toggleActuator(SensorViewModel viewModel, dynamic actuatorData, String actuatorName) async {
+  void _toggleActuator(SensorViewModel viewModel, dynamic actuatorData,
+      String actuatorName) async {
     if (actuatorData == null) return;
 
     // Determine new state
@@ -588,8 +659,10 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     // Create updated actuator data with toggled value
     final updatedData = ActuatorData(
-      waterPump: actuatorName == 'waterPump' ? newState : actuatorData.waterPump,
-      nutrientPump: actuatorName == 'nutrientPump' ? newState : actuatorData.nutrientPump,
+      waterPump:
+          actuatorName == 'waterPump' ? newState : actuatorData.waterPump,
+      nutrientPump:
+          actuatorName == 'nutrientPump' ? newState : actuatorData.nutrientPump,
       lights: actuatorName == 'lights' ? newState : actuatorData.lights,
       fan: actuatorName == 'fan' ? newState : actuatorData.fan,
       timestamp: DateTime.now(),
@@ -602,10 +675,15 @@ class _DashboardScreenState extends State<DashboardScreen>
     final firestoreService = FirestoreService();
     await firestoreService.logActivity(
       title: '$displayName ${newState ? "activated" : "deactivated"}',
-      description: 'Manual control: $displayName turned ${newState ? "ON" : "OFF"}',
-      type: actuatorName == 'waterPump' ? 'water_pump' :
-            actuatorName == 'nutrientPump' ? 'nutrient_pump' :
-            actuatorName == 'lights' ? 'lights' : 'fan',
+      description:
+          'Manual control: $displayName turned ${newState ? "ON" : "OFF"}',
+      type: actuatorName == 'waterPump'
+          ? 'water_pump'
+          : actuatorName == 'nutrientPump'
+              ? 'nutrient_pump'
+              : actuatorName == 'lights'
+                  ? 'lights'
+                  : 'fan',
     );
   }
 
@@ -648,7 +726,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   String _formatTime(DateTime timestamp) {
     final now = DateTime.now();
-    final difference = now.difference(timestamp); 
+    final difference = now.difference(timestamp);
 
     if (difference.inMinutes < 1) {
       return 'Just now';
@@ -659,6 +737,12 @@ class _DashboardScreenState extends State<DashboardScreen>
     } else {
       return '${difference.inDays}d ago';
     }
+  }
+
+  String _formatSensorTime(DateTime timestamp) {
+    final hour = timestamp.hour.toString().padLeft(2, '0');
+    final minute = timestamp.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 
   Widget _buildQuickActionCard({
@@ -716,7 +800,8 @@ class _DashboardScreenState extends State<DashboardScreen>
         if (activities.isEmpty) {
           return Card(
             elevation: 2,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: const Padding(
               padding: EdgeInsets.all(32),
               child: Center(
@@ -737,7 +822,8 @@ class _DashboardScreenState extends State<DashboardScreen>
 
         return Card(
           elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Column(
             children: activities.asMap().entries.map((entry) {
               final index = entry.key;
@@ -752,7 +838,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                     time: _formatActivityTime(activity.timestamp),
                     color: _getActivityColor(activity.type),
                   ),
-                  if (!isLast) Divider(height: 1, color: Theme.of(context).dividerColor),
+                  if (!isLast)
+                    Divider(height: 1, color: Theme.of(context).dividerColor),
                 ],
               );
             }).toList(),
@@ -845,7 +932,8 @@ class _DashboardScreenState extends State<DashboardScreen>
       ),
       subtitle: Text(
         time,
-        style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
+        style: TextStyle(
+            fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color),
       ),
     );
   }
@@ -866,7 +954,8 @@ class _DashboardScreenState extends State<DashboardScreen>
 
         return Card(
           elevation: 3,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -875,13 +964,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    color:
+                        Theme.of(context).colorScheme.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     children: [
                       Icon(
-                        viewModel.isAutomaticMode ? Icons.auto_mode : Icons.touch_app,
+                        viewModel.isAutomaticMode
+                            ? Icons.auto_mode
+                            : Icons.touch_app,
                         color: Theme.of(context).colorScheme.primary,
                         size: 24,
                       ),
@@ -894,16 +986,24 @@ class _DashboardScreenState extends State<DashboardScreen>
                               'Current Mode',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Theme.of(context).textTheme.bodySmall?.color,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.color,
                               ),
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              viewModel.isAutomaticMode ? 'Automatic' : 'Manual',
+                              viewModel.isAutomaticMode
+                                  ? 'Automatic'
+                                  : 'Manual',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Theme.of(context).textTheme.bodyLarge?.color,
+                                color: Theme.of(context)
+                                    .textTheme
+                                    .bodyLarge
+                                    ?.color,
                               ),
                             ),
                           ],
@@ -963,7 +1063,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: actuatorData != null
-                            ? () => _toggleAllActuators(viewModel, actuatorData, true)
+                            ? () => _toggleAllActuators(
+                                viewModel, actuatorData, true)
                             : null,
                         icon: const Icon(Icons.power, size: 20),
                         label: const Text('All ON'),
@@ -981,7 +1082,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: actuatorData != null
-                            ? () => _toggleAllActuators(viewModel, actuatorData, false)
+                            ? () => _toggleAllActuators(
+                                viewModel, actuatorData, false)
                             : null,
                         icon: const Icon(Icons.power_off, size: 20),
                         label: const Text('All OFF'),
@@ -1005,7 +1107,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  void _showEmergencyStopDialog(SensorViewModel viewModel, dynamic actuatorData) {
+  void _showEmergencyStopDialog(
+      SensorViewModel viewModel, dynamic actuatorData) {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -1044,14 +1147,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                 final firestoreService = FirestoreService();
                 await firestoreService.logActivity(
                   title: 'EMERGENCY STOP',
-                  description: 'All systems halted - Water Pump, Nutrient Pump, Lights, and Fan turned OFF',
+                  description:
+                      'All systems halted - Water Pump, Nutrient Pump, Lights, and Fan turned OFF',
                   type: 'emergency',
                 );
 
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: const Text('EMERGENCY STOP - All systems halted!'),
+                      content:
+                          const Text('EMERGENCY STOP - All systems halted!'),
                       backgroundColor: Colors.red[700],
                       duration: const Duration(seconds: 3),
                     ),
@@ -1070,7 +1175,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  void _toggleAllActuators(SensorViewModel viewModel, dynamic actuatorData, bool turnOn) async {
+  void _toggleAllActuators(
+      SensorViewModel viewModel, dynamic actuatorData, bool turnOn) async {
     final updatedData = ActuatorData(
       waterPump: turnOn,
       nutrientPump: turnOn,
@@ -1093,21 +1199,24 @@ class _DashboardScreenState extends State<DashboardScreen>
   Future<void> _speakSystemStatus() async {
     final tts = TtsService();
     final viewModel = context.read<SensorViewModel>();
-    
+
     StringBuffer message = StringBuffer("System status report. ");
-    
+
     final sensorData = viewModel.sensorData;
     if (sensorData == null) {
       message.write("No sensor data available.");
     } else {
       message.write("All systems operational. ");
-      message.write("Temperature is ${sensorData.temperature.toStringAsFixed(1)} degrees celsius. ");
+      message.write(
+          "Temperature is ${sensorData.temperature.toStringAsFixed(1)} degrees celsius. ");
       message.write("pH level is ${sensorData.pH.toStringAsFixed(1)}. ");
-      message.write("Water level is ${sensorData.waterLevel.toStringAsFixed(0)} percent. ");
+      message.write(
+          "Water level is ${sensorData.waterLevel.toStringAsFixed(0)} percent. ");
       message.write("TDS is ${sensorData.tds.toStringAsFixed(0)} ppm. ");
-      message.write("Light intensity is ${sensorData.lightIntensity.toStringAsFixed(0)} lux. ");
+      message.write(
+          "Light intensity is ${sensorData.lightIntensity.toStringAsFixed(0)} lux. ");
     }
-    
+
     await tts.speak(message.toString());
   }
 }
