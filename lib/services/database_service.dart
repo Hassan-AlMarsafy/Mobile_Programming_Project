@@ -407,6 +407,17 @@ class DatabaseService {
     };
   }
 
+  Future<void> clearAllAlerts() async {
+    final db = await database;
+    await db.delete('alert_history');
+    print('🗑️ Cleared all alerts from database');
+  }
+
+  Future<void> deleteAlert(int id) async {
+    final db = await database;
+    await db.delete('alert_history', where: 'id = ?', whereArgs: [id]);
+  }
+
   // ============ THRESHOLD PROFILES ============
 
   Future<List<Map<String, dynamic>>> getThresholdProfiles() async {

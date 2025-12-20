@@ -114,6 +114,37 @@ class _AlertsScreenState extends State<AlertsScreen>
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: 'Clear all alerts',
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Clear All Alerts'),
+                  content:
+                  const Text('Are you sure you want to delete all alerts?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style:
+                      ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                      child: const Text('Clear All',
+                          style: TextStyle(color: Colors.white)),
+                    ),
+                  ],
+                ),
+              );
+              if (confirm == true) {
+                await _databaseService.clearAllAlerts();
+                _loadAlerts();
+              }
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadAlerts,
           ),
@@ -128,17 +159,50 @@ class _AlertsScreenState extends State<AlertsScreen>
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
                   : filteredAlerts.isEmpty
-                      ? _buildEmptyState()
-                      : RefreshIndicator(
-                          onRefresh: _loadAlerts,
-                          child: ListView.builder(
-                            padding: const EdgeInsets.all(12),
-                            itemCount: filteredAlerts.length,
-                            itemBuilder: (context, index) {
-                              return _buildAlertCard(filteredAlerts[index]);
-                            },
-                          ),
+                  ? _buildEmptyState()
+                  : RefreshIndicator(
+                onRefresh: _loadAlerts,
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(12),
+                  itemCount: filteredAlerts.length,
+                  itemBuilder: (context, index) {
+                    final alert = filteredAlerts[index];
+                    final alertId = alert['id'] as int?;
+                    return Dismissible(
+                      key: Key('alert_${alertId ?? index}'),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: 20),
+                        margin: const EdgeInsets.symmetric(
+                            vertical: 8, horizontal: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(16),
                         ),
+                        child: const Icon(Icons.delete,
+                            color: Colors.white),
+                      ),
+                      onDismissed: (direction) async {
+                        if (alertId != null) {
+                          await _databaseService.deleteAlert(alertId);
+                          setState(() {
+                            _alerts.removeWhere(
+                                    (a) => a['id'] == alertId);
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Alert deleted'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                      child: _buildAlertCard(alert),
+                    );
+                  },
+                ),
+              ),
             ),
           ],
         ),
