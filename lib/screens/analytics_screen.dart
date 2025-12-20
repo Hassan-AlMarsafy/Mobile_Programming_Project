@@ -18,13 +18,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   List<Map<String, dynamic>> _sensorHistory = [];
   Map<String, dynamic> _statistics = {};
-  Map<String, dynamic>? _activeProfile;
+
   Map<String, dynamic> _alertSummary = {};
   bool _loading = true;
   int _selectedDays = 7;
   String _selectedSensor = 'temperature';
   bool _showScrollHint = true;
   final ScrollController _chipScrollController = ScrollController();
+
+  // Minimum datapoints required before showing analytics
+  static const int _minDataPoints = 50;
 
   final Map<String, String> _sensorLabels = {
     'temperature': 'Temperature (°C)',
@@ -70,13 +73,13 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         await _databaseService.getSensorHistory(days: _selectedDays);
     final stats =
         await _databaseService.getSensorStatistics(days: _selectedDays);
-    final profile = await _databaseService.getActiveProfile();
+
     final alerts = await _databaseService.getAlertSummary(days: _selectedDays);
 
     setState(() {
       _sensorHistory = history;
       _statistics = stats;
-      _activeProfile = profile;
+
       _alertSummary = alerts;
       _loading = false;
     });
@@ -143,29 +146,33 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final hasEnoughData = _sensorHistory.length >= _minDataPoints;
+
     return MainLayout(
       title: 'Analytics & History',
       currentIndex: 3,
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.share, color: Colors.white),
-          tooltip: 'Export Data',
-          onPressed: _exportData,
-        ),
-        PopupMenuButton<int>(
-          icon: const Icon(Icons.calendar_today, color: Colors.white),
-          tooltip: 'Select Time Range',
-          onSelected: (days) {
-            setState(() => _selectedDays = days);
-            _loadData();
-          },
-          itemBuilder: (context) => [
-            const PopupMenuItem(value: 1, child: Text('Last 24 hours')),
-            const PopupMenuItem(value: 3, child: Text('Last 3 days')),
-            const PopupMenuItem(value: 7, child: Text('Last 7 days')),
-          ],
-        ),
-      ],
+      actions: hasEnoughData && !_loading
+          ? [
+              IconButton(
+                icon: const Icon(Icons.share, color: Colors.white),
+                tooltip: 'Export Data',
+                onPressed: _exportData,
+              ),
+              PopupMenuButton<int>(
+                icon: const Icon(Icons.calendar_today, color: Colors.white),
+                tooltip: 'Select Time Range',
+                onSelected: (days) {
+                  setState(() => _selectedDays = days);
+                  _loadData();
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(value: 1, child: Text('Last 24 hours')),
+                  const PopupMenuItem(value: 3, child: Text('Last 3 days')),
+                  const PopupMenuItem(value: 7, child: Text('Last 7 days')),
+                ],
+              ),
+            ]
+          : [],
       child: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -176,17 +183,20 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildTimeRangeInfo(),
-                    const SizedBox(height: 16),
-                    _buildSensorSelector(),
-                    const SizedBox(height: 16),
-                    _buildTrendChart(),
-                    const SizedBox(height: 24),
-                    _buildStatisticsCards(),
-                    const SizedBox(height: 24),
-                    _buildTrendIndicators(),
-                    const SizedBox(height: 24),
-                    _buildAlertSummary(),
+                    // Check if we have enough data points
+                    if (!hasEnoughData) ...[
+                      _buildInsufficientDataCard(),
+                    ] else ...[
+                      _buildTimeRangeInfo(),
+                      const SizedBox(height: 16),
+                      _buildSensorSelector(),
+                      const SizedBox(height: 16),
+                      _buildTrendChart(),
+                      const SizedBox(height: 24),
+                      _buildStatisticsCards(),
+                      const SizedBox(height: 24),
+                      _buildAlertSummary(),
+                    ],
                   ],
                 ),
               ),
@@ -525,198 +535,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  // Calculate trend: positive = up, negative = down, 0 = stable
-  double _calculateTrend(String sensor) {
-    if (_sensorHistory.length < 2) return 0;
-
-    // Compare first half average to second half average
-    final midpoint = _sensorHistory.length ~/ 2;
-    final firstHalf = _sensorHistory.sublist(0, midpoint);
-    final secondHalf = _sensorHistory.sublist(midpoint);
-
-    double firstAvg = 0;
-    double secondAvg = 0;
-    int firstCount = 0;
-    int secondCount = 0;
-
-    for (final data in firstHalf) {
-      final value = data[sensor];
-      if (value != null) {
-        firstAvg += (value as num).toDouble();
-        firstCount++;
-      }
-    }
-
-    for (final data in secondHalf) {
-      final value = data[sensor];
-      if (value != null) {
-        secondAvg += (value as num).toDouble();
-        secondCount++;
-      }
-    }
-
-    if (firstCount == 0 || secondCount == 0) return 0;
-
-    firstAvg /= firstCount;
-    secondAvg /= secondCount;
-
-    final change = ((secondAvg - firstAvg) / firstAvg) * 100;
-    return change;
-  }
-
-  // Check if current average is outside threshold
-  bool _isOutsideThreshold(String sensor) {
-    if (_activeProfile == null) return false;
-
-    final thresholdMap = {
-      'temperature': ['temp_min', 'temp_max'],
-      'ph': ['ph_min', 'ph_max'],
-      'water_level': ['water_min', 'water_max'],
-      'tds': ['tds_min', 'tds_max'],
-      'light_intensity': ['light_min', 'light_max'],
-    };
-
-    final avgKeyMap = {
-      'temperature': 'avg_temp',
-      'ph': 'avg_ph',
-      'water_level': 'avg_water',
-      'tds': 'avg_tds',
-      'light_intensity': 'avg_light',
-    };
-
-    final keys = thresholdMap[sensor];
-    final avgKey = avgKeyMap[sensor];
-    if (keys == null || avgKey == null) return false;
-
-    final avg = _statistics[avgKey] as num?;
-    final min = _activeProfile![keys[0]] as num?;
-    final max = _activeProfile![keys[1]] as num?;
-
-    if (avg == null || min == null || max == null) return false;
-
-    return avg < min || avg > max;
-  }
-
-  Widget _buildTrendIndicators() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.trending_up, color: Colors.green[600], size: 20),
-                const SizedBox(width: 8),
-                const Text(
-                  'Sensor Trends',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            ..._sensorLabels.entries.map((entry) {
-              final trend = _calculateTrend(entry.key);
-              final isOutside = _isOutsideThreshold(entry.key);
-
-              IconData trendIcon;
-              Color trendColor;
-              String trendText;
-
-              if (trend > 5) {
-                trendIcon = Icons.trending_up;
-                trendColor = isOutside ? Colors.red : Colors.green;
-                trendText = '+${trend.toStringAsFixed(1)}%';
-              } else if (trend < -5) {
-                trendIcon = Icons.trending_down;
-                trendColor = Colors.red;
-                trendText = '${trend.toStringAsFixed(1)}%';
-              } else {
-                trendIcon = Icons.trending_flat;
-                trendColor = isOutside ? Colors.red : Colors.grey;
-                trendText = 'Stable';
-              }
-
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isOutside
-                      ? Colors.red.withOpacity(0.1)
-                      : Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color:
-                        isOutside ? Colors.red : Colors.grey.withOpacity(0.2),
-                    width: isOutside ? 1.5 : 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: _sensorColors[entry.key],
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        entry.value.split(' ').first,
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                    if (isOutside) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.warning_amber,
-                                color: Colors.white, size: 14),
-                            SizedBox(width: 4),
-                            Text(
-                              'Alert',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                    ],
-                    Icon(trendIcon, color: trendColor, size: 20),
-                    const SizedBox(width: 6),
-                    Text(
-                      trendText,
-                      style: TextStyle(
-                        color: trendColor,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildAlertSummary() {
     final total = _alertSummary['total'] as int? ?? 0;
     final bySensor = _alertSummary['by_sensor'] as Map<String, int>? ?? {};
@@ -885,6 +703,90 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 }).toList(),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInsufficientDataCard() {
+    final currentPoints = _sensorHistory.length;
+    final progress = currentPoints / _minDataPoints;
+    final progressPercent = (progress * 100).clamp(0, 100).toInt();
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Icon(
+              Icons.hourglass_bottom,
+              size: 64,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Collecting Sensor Data...',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '$currentPoints of $_minDataPoints readings collected',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[600],
+              ),
+            ),
+            const SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 12,
+                backgroundColor: Colors.grey[200],
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  Colors.green[600]!,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '$progressPercent%',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.green[600],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue[600], size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Analytics require at least $_minDataPoints data points for accurate trends and statistics. Check back soon!',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.blue[700],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
