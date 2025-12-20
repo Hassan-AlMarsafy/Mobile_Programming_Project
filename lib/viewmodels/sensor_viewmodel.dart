@@ -53,16 +53,16 @@ class SensorViewModel extends ChangeNotifier {
   void _initConnectivity() {
     _connectivitySubscription =
         _connectivity.onConnectivityChanged.listen((results) {
-          final wasOffline = isOffline;
-          isOffline = results.contains(ConnectivityResult.none);
+      final wasOffline = isOffline;
+      isOffline = results.contains(ConnectivityResult.none);
 
-          if (wasOffline && !isOffline) {
-            // Just came online - sync queued commands
-            _syncQueuedCommands();
-          }
+      if (wasOffline && !isOffline) {
+        // Just came online - sync queued commands
+        _syncQueuedCommands();
+      }
 
-          notifyListeners();
-        });
+      notifyListeners();
+    });
 
     // Check initial connectivity
     _connectivity.checkConnectivity().then((results) {
@@ -121,8 +121,8 @@ class SensorViewModel extends ChangeNotifier {
   // Listen to Firebase changes and update local state
   void _listenToFirebaseData() {
     _sensorSubscription = _firestoreService.getSensorDataStream().listen((
-        data,
-        ) {
+      data,
+    ) {
       if (data != null) {
         sensorData = data;
         loading = false;
@@ -155,8 +155,8 @@ class SensorViewModel extends ChangeNotifier {
     });
 
     _actuatorSubscription = _firestoreService.getActuatorDataStream().listen((
-        data,
-        ) {
+      data,
+    ) {
       if (data != null) {
         actuatorData = data;
         // Cache to SQLite for offline mode
@@ -166,8 +166,8 @@ class SensorViewModel extends ChangeNotifier {
     });
 
     _modeSubscription = _firestoreService.getSystemModeStream().listen((
-        mode,
-        ) {
+      mode,
+    ) {
       isAutomaticMode = mode;
       notifyListeners();
 
@@ -179,8 +179,8 @@ class SensorViewModel extends ChangeNotifier {
 
     // Listen to activity logs
     _activitySubscription = _firestoreService.getActivityLogsStream().listen((
-        logs,
-        ) {
+      logs,
+    ) {
       activityLogs = logs;
       notifyListeners();
     });
@@ -329,168 +329,159 @@ class SensorViewModel extends ChangeNotifier {
 
   // Check sensor values against thresholds and generate alerts
   Future<void> _checkThresholdsAndAlert(SensorData data) async {
-    // Prevent concurrent alert checks (fixes multiple alerts on rapid data)
-    if (_isCheckingAlerts) return;
-    _isCheckingAlerts = true;
+    final profile = await _databaseService.getActiveProfile();
+    if (profile == null) return;
 
-    try {
-      final profile = await _databaseService.getActiveProfile();
-      if (profile == null) return;
+    // Helper function to handle alert with rate limiting and cooldown
+    Future<void> handleSensorAlert({
+      required String sensorType,
+      required double value,
+      required num min,
+      required num max,
+      required String Function(bool isTooLow) messageBuilder,
+      required String Function(double value, num threshold) severityCalculator,
+    }) async {
+      final isOutsideRange = value < min || value > max;
+      final isTooLow = value < min;
+      final wasInAlertState = _sensorInAlertState[sensorType] ?? false;
 
-      // Helper function to handle alert with rate limiting and cooldown
-      Future<void> handleSensorAlert({
-        required String sensorType,
-        required double value,
-        required num min,
-        required num max,
-        required String Function(bool isTooLow) messageBuilder,
-        required String Function(double value, num threshold)
-        severityCalculator,
-      }) async {
-        final isOutsideRange = value < min || value > max;
-        final isTooLow = value < min;
-        final wasInAlertState = _sensorInAlertState[sensorType] ?? false;
+      if (isOutsideRange) {
+        // Value is outside threshold
+        if (!wasInAlertState) {
+          // First time entering alert state OR cooldown passed after returning to normal
+          final lastAlert = _lastAlertTime[sensorType];
+          final now = DateTime.now();
 
-        if (isOutsideRange) {
-          // Value is outside threshold
-          if (!wasInAlertState) {
-            // First time entering alert state OR cooldown passed after returning to normal
-            final lastAlert = _lastAlertTime[sensorType];
-            final now = DateTime.now();
+          // Check rate limiting: only alert if no recent alert
+          if (lastAlert == null ||
+              now.difference(lastAlert) >= _alertCooldown) {
+            final severity = severityCalculator(value, isTooLow ? min : max);
+            final message = messageBuilder(isTooLow);
 
-            // Check rate limiting: only alert if no recent alert
-            if (lastAlert == null ||
-                now.difference(lastAlert) >= _alertCooldown) {
-              final severity = severityCalculator(value, isTooLow ? min : max);
-              final message = messageBuilder(isTooLow);
+            // Save to database
+            await _databaseService.addAlert(
+              sensorType: sensorType,
+              message: message,
+              severity: severity,
+            );
 
-              // Save to database
-              await _databaseService.addAlert(
-                sensorType: sensorType,
-                message: message,
-                severity: severity,
-              );
+            // Show push notification
+            final sensorName = {
+                  'temperature': 'Temperature',
+                  'ph': 'pH Level',
+                  'water_level': 'Water Level',
+                  'tds': 'TDS',
+                  'light_intensity': 'Light',
+                }[sensorType] ??
+                sensorType;
 
-              // Show push notification
-              final sensorName = {
-                'temperature': 'Temperature',
-                'ph': 'pH Level',
-                'water_level': 'Water Level',
-                'tds': 'TDS',
-                'light_intensity': 'Light',
-              }[sensorType] ??
-                  sensorType;
+            await _notificationService.showAlertNotification(
+              title: '⚠️ $sensorName Alert',
+              body: message,
+              severity: severity,
+            );
 
-              await _notificationService.showAlertNotification(
-                title: '⚠️ $sensorName Alert',
-                body: message,
-                severity: severity,
-              );
+            // Update tracking
+            _lastAlertTime[sensorType] = now;
+            _sensorInAlertState[sensorType] = true;
 
-              // Update tracking
-              _lastAlertTime[sensorType] = now;
-              _sensorInAlertState[sensorType] = true;
-
-              print('🚨 Alert triggered for $sensorType: $message');
-            }
-          }
-          // If already in alert state, do nothing (cooldown active)
-        } else {
-          // Value is back in normal range - clear alert state
-          if (wasInAlertState) {
-            _sensorInAlertState[sensorType] = false;
-            print('✅ $sensorType returned to normal range');
+            print('🚨 Alert triggered for $sensorType: $message');
           }
         }
+        // If already in alert state, do nothing (cooldown active)
+      } else {
+        // Value is back in normal range - clear alert state
+        if (wasInAlertState) {
+          _sensorInAlertState[sensorType] = false;
+          print('✅ $sensorType returned to normal range');
+        }
       }
+    }
 
-      // Check Temperature
-      final tempMin = profile['temp_min'] as num?;
-      final tempMax = profile['temp_max'] as num?;
-      if (tempMin != null && tempMax != null) {
-        await handleSensorAlert(
-          sensorType: 'temperature',
-          value: data.temperature,
-          min: tempMin,
-          max: tempMax,
-          messageBuilder: (isTooLow) => isTooLow
-              ? 'Temperature too low: ${data.temperature.toStringAsFixed(1)}°C (min: $tempMin°C)'
-              : 'Temperature too high: ${data.temperature.toStringAsFixed(1)}°C (max: $tempMax°C)',
-          severityCalculator: (value, threshold) =>
-          value > threshold + 5 || value < threshold - 5
-              ? 'critical'
-              : 'warning',
-        );
-      }
+    // Check Temperature
+    final tempMin = profile['temp_min'] as num?;
+    final tempMax = profile['temp_max'] as num?;
+    if (tempMin != null && tempMax != null) {
+      await handleSensorAlert(
+        sensorType: 'temperature',
+        value: data.temperature,
+        min: tempMin,
+        max: tempMax,
+        messageBuilder: (isTooLow) => isTooLow
+            ? 'Temperature too low: ${data.temperature.toStringAsFixed(1)}°C (min: $tempMin°C)'
+            : 'Temperature too high: ${data.temperature.toStringAsFixed(1)}°C (max: $tempMax°C)',
+        severityCalculator: (value, threshold) =>
+            value > threshold + 5 || value < threshold - 5
+                ? 'critical'
+                : 'warning',
+      );
+    }
 
-      // Check pH
-      final phMin = profile['ph_min'] as num?;
-      final phMax = profile['ph_max'] as num?;
-      if (phMin != null && phMax != null) {
-        await handleSensorAlert(
-          sensorType: 'ph',
-          value: data.pH,
-          min: phMin,
-          max: phMax,
-          messageBuilder: (isTooLow) => isTooLow
-              ? 'pH too low: ${data.pH.toStringAsFixed(2)} (min: $phMin)'
-              : 'pH too high: ${data.pH.toStringAsFixed(2)} (max: $phMax)',
-          severityCalculator: (value, threshold) =>
-          (value - threshold).abs() > 1 ? 'critical' : 'warning',
-        );
-      }
+    // Check pH
+    final phMin = profile['ph_min'] as num?;
+    final phMax = profile['ph_max'] as num?;
+    if (phMin != null && phMax != null) {
+      await handleSensorAlert(
+        sensorType: 'ph',
+        value: data.pH,
+        min: phMin,
+        max: phMax,
+        messageBuilder: (isTooLow) => isTooLow
+            ? 'pH too low: ${data.pH.toStringAsFixed(2)} (min: $phMin)'
+            : 'pH too high: ${data.pH.toStringAsFixed(2)} (max: $phMax)',
+        severityCalculator: (value, threshold) =>
+            (value - threshold).abs() > 1 ? 'critical' : 'warning',
+      );
+    }
 
-      // Check Water Level
-      final waterMin = profile['water_min'] as num?;
-      final waterMax = profile['water_max'] as num?;
-      if (waterMin != null && waterMax != null) {
-        await handleSensorAlert(
-          sensorType: 'water_level',
-          value: data.waterLevel,
-          min: waterMin,
-          max: waterMax,
-          messageBuilder: (isTooLow) => isTooLow
-              ? 'Water level too low: ${data.waterLevel.toStringAsFixed(1)}% (min: $waterMin%)'
-              : 'Water level too high: ${data.waterLevel.toStringAsFixed(1)}% (max: $waterMax%)',
-          severityCalculator: (value, threshold) =>
-          value < threshold - 10 ? 'critical' : 'warning',
-        );
-      }
+    // Check Water Level
+    final waterMin = profile['water_min'] as num?;
+    final waterMax = profile['water_max'] as num?;
+    if (waterMin != null && waterMax != null) {
+      await handleSensorAlert(
+        sensorType: 'water_level',
+        value: data.waterLevel,
+        min: waterMin,
+        max: waterMax,
+        messageBuilder: (isTooLow) => isTooLow
+            ? 'Water level too low: ${data.waterLevel.toStringAsFixed(1)}% (min: $waterMin%)'
+            : 'Water level too high: ${data.waterLevel.toStringAsFixed(1)}% (max: $waterMax%)',
+        severityCalculator: (value, threshold) =>
+            value < threshold - 10 ? 'critical' : 'warning',
+      );
+    }
 
-      // Check TDS
-      final tdsMin = profile['tds_min'] as num?;
-      final tdsMax = profile['tds_max'] as num?;
-      if (tdsMin != null && tdsMax != null) {
-        await handleSensorAlert(
-          sensorType: 'tds',
-          value: data.tds,
-          min: tdsMin,
-          max: tdsMax,
-          messageBuilder: (isTooLow) => isTooLow
-              ? 'TDS too low: ${data.tds.toStringAsFixed(0)} ppm (min: $tdsMin ppm)'
-              : 'TDS too high: ${data.tds.toStringAsFixed(0)} ppm (max: $tdsMax ppm)',
-          severityCalculator: (value, threshold) =>
-          value > threshold * 1.5 ? 'critical' : 'warning',
-        );
-      }
+    // Check TDS
+    final tdsMin = profile['tds_min'] as num?;
+    final tdsMax = profile['tds_max'] as num?;
+    if (tdsMin != null && tdsMax != null) {
+      await handleSensorAlert(
+        sensorType: 'tds',
+        value: data.tds,
+        min: tdsMin,
+        max: tdsMax,
+        messageBuilder: (isTooLow) => isTooLow
+            ? 'TDS too low: ${data.tds.toStringAsFixed(0)} ppm (min: $tdsMin ppm)'
+            : 'TDS too high: ${data.tds.toStringAsFixed(0)} ppm (max: $tdsMax ppm)',
+        severityCalculator: (value, threshold) =>
+            value > threshold * 1.5 ? 'critical' : 'warning',
+      );
+    }
 
-      // Check Light Intensity
-      final lightMin = profile['light_min'] as num?;
-      final lightMax = profile['light_max'] as num?;
-      if (lightMin != null && lightMax != null) {
-        await handleSensorAlert(
-          sensorType: 'light_intensity',
-          value: data.lightIntensity,
-          min: lightMin,
-          max: lightMax,
-          messageBuilder: (isTooLow) => isTooLow
-              ? 'Light too low: ${data.lightIntensity.toStringAsFixed(0)} lux (min: $lightMin lux)'
-              : 'Light too high: ${data.lightIntensity.toStringAsFixed(0)} lux (max: $lightMax lux)',
-          severityCalculator: (value, threshold) => 'warning',
-        );
-      }
-    } finally {
-      _isCheckingAlerts = false;
+    // Check Light Intensity
+    final lightMin = profile['light_min'] as num?;
+    final lightMax = profile['light_max'] as num?;
+    if (lightMin != null && lightMax != null) {
+      await handleSensorAlert(
+        sensorType: 'light_intensity',
+        value: data.lightIntensity,
+        min: lightMin,
+        max: lightMax,
+        messageBuilder: (isTooLow) => isTooLow
+            ? 'Light too low: ${data.lightIntensity.toStringAsFixed(0)} lux (min: $lightMin lux)'
+            : 'Light too high: ${data.lightIntensity.toStringAsFixed(0)} lux (max: $lightMax lux)',
+        severityCalculator: (value, threshold) => 'warning',
+      );
     }
   }
 
