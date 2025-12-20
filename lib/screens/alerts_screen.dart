@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/database_service.dart';
+import '../theme/app_theme.dart';
 
 // Enum to define the severity of an alert
 enum AlertSeverity { critical, warning, info }
@@ -100,6 +101,7 @@ class _AlertsScreenState extends State<AlertsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
     final filteredAlerts = _alerts.where((alert) {
       if (_selectedFilter == null) return true;
       return _parseSeverity(alert['severity'] as String?) == _selectedFilter;
@@ -114,7 +116,10 @@ class _AlertsScreenState extends State<AlertsScreen>
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.delete_outline),
+            icon: Icon(
+              Icons.delete_outline,
+              color: isDarkMode ? Colors.white : null,
+            ),
             tooltip: 'Clear all alerts',
             onPressed: () async {
               final confirm = await showDialog<bool>(
@@ -145,7 +150,10 @@ class _AlertsScreenState extends State<AlertsScreen>
             },
           ),
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: Icon(
+              Icons.refresh,
+              color: isDarkMode ? Colors.white : null,
+            ),
             onPressed: _loadAlerts,
           ),
         ],
@@ -211,11 +219,12 @@ class _AlertsScreenState extends State<AlertsScreen>
   }
 
   Widget _buildFilterBar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Colors.grey[200]!)),
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        border: Border(bottom: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[200]!)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -231,6 +240,7 @@ class _AlertsScreenState extends State<AlertsScreen>
 
   Widget _buildFilterChip(String label, AlertSeverity? severity) {
     final isSelected = _selectedFilter == severity;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return ChoiceChip(
       label: Text(label),
       selected: isSelected,
@@ -239,16 +249,20 @@ class _AlertsScreenState extends State<AlertsScreen>
           _selectedFilter = severity;
         });
       },
-      backgroundColor: Colors.grey[100],
-      selectedColor: Colors.green[100],
+      backgroundColor: isDark ? Colors.grey[800] : Colors.grey[100],
+      selectedColor: isDark ? AppTheme.primaryColor.withOpacity(0.3) : Colors.green[100],
       labelStyle: TextStyle(
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        color: isSelected ? Colors.green[800] : Colors.black54,
+        color: isSelected
+            ? (isDark ? AppTheme.primaryColor : Colors.green[800])
+            : (isDark ? AppTheme.primaryColor.withOpacity(0.7) : Colors.black54),
       ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
         side: BorderSide(
-          color: isSelected ? Colors.green[700]! : Colors.grey[300]!,
+          color: isSelected
+              ? AppTheme.primaryColor
+              : (isDark ? Colors.grey[700]! : Colors.grey[300]!),
         ),
       ),
     );
@@ -259,6 +273,7 @@ class _AlertsScreenState extends State<AlertsScreen>
     final sensorType = alert['sensor_type'] as String? ?? 'System';
     final message = alert['message'] as String? ?? 'No details';
     final timestamp = alert['timestamp'] as int? ?? 0;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Card(
       elevation: 2,
@@ -286,15 +301,19 @@ class _AlertsScreenState extends State<AlertsScreen>
                 Expanded(
                   child: Text(
                     sensorType,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black,
                     ),
                   ),
                 ),
                 Text(
                   _formatTime(timestamp),
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  style: TextStyle(
+                    color: isDark ? Colors.grey[400] : Colors.grey,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
@@ -303,7 +322,10 @@ class _AlertsScreenState extends State<AlertsScreen>
               padding: const EdgeInsets.only(left: 40),
               child: Text(
                 message,
-                style: const TextStyle(color: Colors.black54, fontSize: 14),
+                style: TextStyle(
+                  color: isDark ? Colors.white : Colors.black54,
+                  fontSize: 14,
+                ),
               ),
             ),
           ],
@@ -313,24 +335,25 @@ class _AlertsScreenState extends State<AlertsScreen>
   }
 
   Widget _buildEmptyState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.notifications_active_outlined,
-              size: 80, color: Colors.grey[400]),
+              size: 80, color: isDark ? AppTheme.primaryColor : Colors.grey[400]),
           const SizedBox(height: 16),
           Text(
             'No Alerts Yet',
             style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.grey[600]),
+                color: isDark ? AppTheme.primaryColor : Colors.grey[600]),
           ),
           const SizedBox(height: 8),
           Text(
             'Alerts will appear when sensor values go out of range',
-            style: TextStyle(color: Colors.grey[500]),
+            style: TextStyle(color: isDark ? AppTheme.primaryColor.withOpacity(0.7) : Colors.grey[500]),
             textAlign: TextAlign.center,
           ),
         ],

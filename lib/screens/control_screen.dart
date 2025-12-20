@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../widgets/main_layout.dart';
@@ -6,6 +7,7 @@ import '../models/actuator_data.dart';
 import '../services/speech_service.dart';
 import '../services/tts_service.dart';
 import '../services/firestore_service.dart';
+import '../services/schedule_service.dart';
 import '../viewmodels/settings_viewmodel.dart';
 
 class ControlScreen extends StatefulWidget {
@@ -18,6 +20,7 @@ class ControlScreen extends StatefulWidget {
 class _ControlScreenState extends State<ControlScreen> with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  Timer? _uiUpdateTimer;
 
   // State for switches
   bool _waterPumpState = true;
@@ -39,12 +42,20 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
     _fadeAnimation = CurvedAnimation(parent: _animationController, curve: Curves.easeIn);
     _animationController.forward();
     // Don't initialize speech service here - only when SR is enabled and user taps mic
+
+    // Update UI every 10 seconds to refresh schedule status
+    _uiUpdateTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
   }
 
   @override
   void dispose() {
     _animationController.dispose();
     _speechService.dispose();
+    _uiUpdateTimer?.cancel();
     super.dispose();
   }
 
@@ -344,18 +355,62 @@ class _ControlScreenState extends State<ControlScreen> with SingleTickerProvider
   }
   
   Widget _buildSchedulingCard() {
+    final scheduleService = ScheduleService();
+    final isWatering = scheduleService.isCurrentlyWatering;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        leading: Icon(Icons.schedule, color: Colors.green[700], size: 32),
-        title: const Text('Manage Schedules', style: TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: const Text('Set timers for pumps and lights'),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-        onTap: () {
-          Navigator.pushNamed(context, '/watering-schedule');
-        },
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            leading: Icon(Icons.schedule, color: Colors.green[700], size: 32),
+            title: const Text('Manage Schedules', style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: const Text('Set timers for pumps and lights'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+            onTap: () {
+              Navigator.pushNamed(context, '/watering-schedule');
+            },
+          ),
+          if (isWatering)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.blue[900]!.withOpacity(0.3) : Colors.blue[50],
+                border: Border(
+                  top: BorderSide(
+                    color: isDark ? Colors.blue[700]! : Colors.blue[200]!,
+                    width: 1,
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.water_drop, color: Colors.blue[700], size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Scheduled watering in progress...',
+                      style: TextStyle(
+                        color: isDark ? Colors.blue[300] : Colors.blue[900],
+                        fontWeight: FontWeight.w500,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      await scheduleService.stopCurrentWatering();
+                      setState(() {});
+                    },
+                    child: const Text('STOP'),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
